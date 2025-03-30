@@ -12,11 +12,13 @@ def setup_auth():
     config_file = Path("config.yaml")
     if not config_file.exists():
         # 기본 사용자 생성
+        hasher = stauth.Hasher()
+        hashed_password = hasher.hash("guest")
         credentials = {
             'usernames': {
                 'guest': {
                     'name': '게스트',
-                    'password': stauth.Hasher(['guest']).generate()[0],
+                    'password': hashed_password,
                     'email': 'guest@example.com'
                 }
             }
@@ -76,7 +78,8 @@ def register_user(authenticator):
                             return
                             
                         # 새 사용자 추가
-                        hashed_password = stauth.Hasher([password]).generate()[0]
+                        hasher = stauth.Hasher()
+                        hashed_password = hasher.hash(password)
                         config['credentials']['usernames'][username] = {
                             'name': name,
                             'password': hashed_password,

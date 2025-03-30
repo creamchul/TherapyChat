@@ -38,12 +38,12 @@ def setup_auth():
     with open(config_file) as file:
         config = yaml.load(file, Loader=SafeLoader)
 
-    # 인증자 생성
+    # 인증자 생성 - 0.1.5 버전 형식으로 변경
     authenticator = stauth.Authenticate(
         config['credentials'],
         config['cookie']['name'],
-        config['cookie']['key'],
-        config['cookie']['expiry_days']
+        config['cookie']['expiry_days'],
+        config['cookie']['key']
     )
     
     return authenticator

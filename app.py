@@ -86,22 +86,32 @@ with st.sidebar:
         
         if selected_tab == "로그인":
             st.subheader("로그인")
-            name, authentication_status, username = authenticator.login("", "main")
-            if authentication_status:
-                st.session_state.logged_in = True
-                st.session_state.username = username
-                st.success(f"환영합니다, {name}님!")
-                
-                # 사용자 데이터 로드
-                st.session_state.user_data = load_user_data(username)
-                
-                # 채팅 초기화
-                initialize_chat_history()
-                st.rerun()
-                
-            elif authentication_status == False:
-                st.error("사용자 이름 또는 비밀번호가 잘못되었습니다.")
-            
+            try:
+                login_form = st.empty()
+                with login_form.container():
+                    username = st.text_input("사용자 이름", key="login_username")
+                    password = st.text_input("비밀번호", type="password", key="login_password")
+                    login_button = st.button("로그인")
+                    
+                    if login_button:
+                        if authenticator.login(username, password):
+                            st.session_state.logged_in = True
+                            st.session_state.username = username
+                            user_info = authenticator.credentials['usernames'][username]
+                            st.success(f"환영합니다, {user_info['name']}님!")
+                            
+                            # 사용자 데이터 로드
+                            st.session_state.user_data = load_user_data(username)
+                            
+                            # 채팅 초기화
+                            initialize_chat_history()
+                            login_form.empty()
+                            st.rerun()
+                        else:
+                            st.error("사용자 이름 또는 비밀번호가 잘못되었습니다.")
+            except Exception as e:
+                st.error(f"로그인 중 오류가 발생했습니다: {e}")
+
             # 회원가입으로 이동 버튼
             st.markdown("---")
             if st.button("계정이 없으신가요? 회원가입 하기"):
@@ -135,14 +145,17 @@ with st.sidebar:
                 save_user_data(st.session_state.username, st.session_state.user_data)
             
             # 로그아웃 처리
-            authenticator.logout("로그아웃", "main")
-            st.session_state.logged_in = False
-            st.session_state.selected_emotion = None
-            st.session_state.chat_started = False
-            st.session_state.active_tab = "로그인"
-            if 'messages' in st.session_state:
-                del st.session_state.messages
-            st.rerun()
+            try:
+                authenticator.logout()
+                st.session_state.logged_in = False
+                st.session_state.selected_emotion = None
+                st.session_state.chat_started = False
+                st.session_state.active_tab = "로그인"
+                if 'messages' in st.session_state:
+                    del st.session_state.messages
+                st.rerun()
+            except Exception as e:
+                st.error(f"로그아웃 중 오류가 발생했습니다: {e}")
 
 # 감정 선택 옵션 (로그인 한 경우만)
 if st.session_state.logged_in:

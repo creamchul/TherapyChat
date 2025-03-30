@@ -6,9 +6,6 @@ from dotenv import load_dotenv
 # 환경 변수 로드
 load_dotenv()
 
-# OpenAI API 키 설정
-openai.api_key = os.getenv("OPENAI_API_KEY")
-
 # 감정 목록
 EMOTIONS = {
     "기쁨": "행복하고 즐거운 상태",
@@ -23,6 +20,15 @@ EMOTIONS = {
     "감사": "고마움을 느끼는 상태"
 }
 
+# AI 원칙 (시스템 프롬프트에서는 직접 사용하지 않지만 참조용으로 보존)
+_AI_PRINCIPLES = """
+1. 항상 공감하고 경청하는 태도를 보여주세요.
+2. 사용자의 감정을 인정하고 존중해주세요.
+3. 간결하고 명확하게 대화하세요.
+4. 판단하지 말고 이해하려고 노력하세요.
+5. 필요한 경우 전문적인 도움을 권유하세요.
+"""
+
 def get_system_prompt(emotion=None):
     """
     시스템 프롬프트를 생성합니다.
@@ -33,12 +39,8 @@ def get_system_prompt(emotion=None):
     사용자의 감정과 상황에 공감하고, 이해하며, 적절한 위로와 조언을 제공해주세요.
     대화는 한국어로 진행합니다.
     
-    지켜야 할 원칙:
-    1. 항상 공감하고 경청하는 태도를 보여주세요.
-    2. 사용자의 감정을 인정하고 존중해주세요.
-    3. 간결하고 명확하게 대화하세요.
-    4. 판단하지 말고 이해하려고 노력하세요.
-    5. 필요한 경우 전문적인 도움을 권유하세요.
+    항상 공감하는 태도로 경청하며, 사용자의 감정을 인정하고 존중해주세요.
+    판단하지 말고 이해하려 노력하며, 필요시 전문적 도움을 권유하세요.
     """
     
     if emotion:
@@ -52,6 +54,9 @@ def get_ai_response(messages):
     OpenAI API를 사용하여 AI 응답을 생성합니다.
     """
     try:
+        # API 키 사용
+        openai.api_key = st.session_state.api_key
+        
         response = openai.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=messages,
@@ -83,8 +88,9 @@ def display_chat_history():
     for message in st.session_state.messages:
         if message["role"] == "user":
             st.chat_message("user").write(message["content"])
-        else:
+        elif message["role"] == "assistant":
             st.chat_message("assistant").write(message["content"])
+        # system 메시지는 표시하지 않음
 
 def start_new_chat(emotion=None):
     """
@@ -108,6 +114,9 @@ def analyze_emotion(text):
     텍스트에서 감정을 분석합니다.
     """
     try:
+        # API 키 사용
+        openai.api_key = st.session_state.api_key
+        
         messages = [
             {"role": "system", "content": "당신은 텍스트에서 감정을 분석하는 전문가입니다. 주어진 텍스트에서 주요 감정을 파악하여 '기쁨', '슬픔', '분노', '불안', '스트레스', '외로움', '후회', '좌절', '혼란', '감사' 중 하나만 선택하여 응답하세요. 다른 말은 덧붙이지 말고 감정 단어 하나만 응답하세요."},
             {"role": "user", "content": text}

@@ -58,11 +58,29 @@ st.markdown("""
     .st-emotion-cache-1q7pdpx e1vs0wn31 {
         border-radius: 20px;
     }
+    .emoji {
+        font-size: 1.2rem;
+        margin-right: 8px;
+    }
 </style>
 """, unsafe_allow_html=True)
 
 # 인증 정보 설정
 credentials = setup_auth()
+
+# 감정 아이콘 매핑
+EMOTION_ICONS = {
+    "기쁨": "😊",
+    "슬픔": "😢",
+    "분노": "😠",
+    "불안": "😰",
+    "스트레스": "😫",
+    "외로움": "😔",
+    "후회": "😞",
+    "좌절": "😩",
+    "혼란": "😕",
+    "감사": "🙏"
+}
 
 # 세션 상태 초기화
 if 'logged_in' not in st.session_state:
@@ -73,10 +91,24 @@ if 'chat_started' not in st.session_state:
     st.session_state.chat_started = False
 if 'active_tab' not in st.session_state:
     st.session_state.active_tab = "로그인"
+if 'api_key' not in st.session_state:
+    st.session_state.api_key = os.getenv("OPENAI_API_KEY", "")
 
 # 사이드바 - 로그인/로그아웃
 with st.sidebar:
     st.markdown("<h2 class='sub-header'>사용자 인증</h2>", unsafe_allow_html=True)
+    
+    # API 키 설정
+    if st.session_state.logged_in:
+        with st.expander("OpenAI API 키 설정"):
+            api_key = st.text_input("OpenAI API 키", 
+                                    value=st.session_state.api_key,
+                                    type="password",
+                                    key="api_key_input")
+            if st.button("저장", key="save_api_key"):
+                st.session_state.api_key = api_key
+                os.environ["OPENAI_API_KEY"] = api_key
+                st.success("API 키가 저장되었습니다!")
     
     if not st.session_state.logged_in:
         # 탭 선택
@@ -152,87 +184,75 @@ with st.sidebar:
             except Exception as e:
                 st.error(f"로그아웃 중 오류가 발생했습니다: {e}")
 
-# 감정 선택 옵션 (로그인 한 경우만)
-if st.session_state.logged_in:
-    st.markdown("<h2 class='sub-header'>감정 선택</h2>", unsafe_allow_html=True)
-    st.write("현재 느끼는 감정을 선택해주세요:")
-    
-    # 감정 버튼 그리드 생성
-    emotion_cols = st.columns(2)
-    for i, (emotion, description) in enumerate(EMOTIONS.items()):
-        col_idx = i % 2
-        btn_class = "emotion-button"
-        if st.session_state.selected_emotion == emotion:
-            btn_class += " emotion-selected"
-        
-        if emotion_cols[col_idx].button(
-            emotion, 
-            key=f"emotion_{emotion}", 
-            help=description,
-            use_container_width=True
-        ):
-            st.session_state.selected_emotion = emotion
-            st.session_state.chat_started = False
-            st.rerun()
-
 # 메인 컨텐츠
 st.markdown("<h1 class='main-header'>감정 치유 AI 챗봇</h1>", unsafe_allow_html=True)
 
 if not st.session_state.logged_in:
     st.info("로그인하면 AI 챗봇과 대화할 수 있습니다. 왼쪽 사이드바에서 로그인해주세요.")
 else:
+    # 감정 선택 페이지 또는 채팅 페이지 표시
     if not st.session_state.selected_emotion:
-        st.info("왼쪽 사이드바에서 현재 느끼는 감정을 선택해주세요.")
+        st.markdown("<h2 class='sub-header'>감정 선택</h2>", unsafe_allow_html=True)
+        st.write("현재 느끼는 감정을 선택해주세요:")
+        
+        # 감정 버튼 그리드 생성
+        col1, col2 = st.columns(2)
+        
+        for i, (emotion, description) in enumerate(EMOTIONS.items()):
+            col = col1 if i % 2 == 0 else col2
+            icon = EMOTION_ICONS.get(emotion, "")
+            
+            if col.button(f"{icon} {emotion}", 
+                         key=f"emotion_{emotion}", 
+                         help=description,
+                         use_container_width=True):
+                st.session_state.selected_emotion = emotion
+                st.session_state.chat_started = True
+                start_new_chat(emotion)
+                st.rerun()
     else:
         # 감정이 선택된 경우
-        st.markdown(f"<h2 class='sub-header'>선택한 감정: {st.session_state.selected_emotion}</h2>", unsafe_allow_html=True)
+        st.markdown(f"<h2 class='sub-header'>선택한 감정: {EMOTION_ICONS.get(st.session_state.selected_emotion, '')} {st.session_state.selected_emotion}</h2>", unsafe_allow_html=True)
         
         # 감정 설명
         emotion_description = EMOTIONS.get(st.session_state.selected_emotion, "")
         st.write(f"**{emotion_description}**")
         
-        # 채팅 시작 버튼
-        if not st.session_state.chat_started:
-            if st.button("AI 상담사와 대화 시작하기"):
-                st.session_state.chat_started = True
-                greeting = start_new_chat(st.session_state.selected_emotion)
-                st.rerun()
-        else:
-            # 채팅 인터페이스
-            initialize_chat_history()
-            display_chat_history()
+        # 채팅 인터페이스
+        initialize_chat_history()
+        display_chat_history()
+        
+        # 사용자 입력
+        user_input = st.chat_input("메시지를 입력하세요...")
+        if user_input:
+            # API 키 확인
+            if not st.session_state.api_key:
+                st.warning("OpenAI API 키를 입력해주세요. 왼쪽 사이드바의 'OpenAI API 키 설정'에서 설정할 수 있습니다.")
+                st.stop()
+                
+            # 사용자 메시지 추가
+            add_message("user", user_input)
+            st.chat_message("user").write(user_input)
             
-            # 사용자 입력
-            user_input = st.chat_input("메시지를 입력하세요...")
-            if user_input:
-                # 사용자 메시지 추가
-                add_message("user", user_input)
-                st.chat_message("user").write(user_input)
-                
-                # 채팅 기록에서 시스템 메시지를 제외한 메시지 컨텍스트 생성
-                messages_for_api = [msg for msg in st.session_state.messages if msg["role"] != "assistant" or st.session_state.messages.index(msg) == 0]
-                
-                # AI 응답 생성
-                with st.spinner("응답 생성 중..."):
-                    ai_response = get_ai_response(messages_for_api)
-                
-                # AI 메시지 추가
-                add_message("assistant", ai_response)
-                st.chat_message("assistant").write(ai_response)
-                
-                # 텍스트 입력에서 감정 자동 분석 (선택한 감정이 없을 경우)
-                if not st.session_state.selected_emotion:
-                    detected_emotion = analyze_emotion(user_input)
-                    if detected_emotion:
-                        st.session_state.selected_emotion = detected_emotion
-                        st.info(f"감정 분석: '{detected_emotion}'을(를) 느끼고 계신 것 같습니다.")
-                        st.rerun()
+            # 채팅 기록에서 시스템 메시지를 제외한 메시지 컨텍스트 생성
+            messages_for_api = [msg for msg in st.session_state.messages if msg["role"] != "assistant" or st.session_state.messages.index(msg) == 0]
             
-            # 새 채팅 시작 버튼
-            if st.button("새 대화 시작"):
-                st.session_state.chat_started = False
-                st.session_state.selected_emotion = None
-                st.rerun()
+            # API 키 설정
+            os.environ["OPENAI_API_KEY"] = st.session_state.api_key
+            
+            # AI 응답 생성
+            with st.spinner("응답 생성 중..."):
+                ai_response = get_ai_response(messages_for_api)
+            
+            # AI 메시지 추가
+            add_message("assistant", ai_response)
+            st.chat_message("assistant").write(ai_response)
+        
+        # 새 감정 선택 버튼
+        if st.button("다른 감정 선택하기"):
+            st.session_state.selected_emotion = None
+            st.session_state.chat_started = False
+            st.rerun()
 
 # 푸터
 st.markdown("---")

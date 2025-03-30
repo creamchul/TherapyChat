@@ -97,7 +97,7 @@ def register_user(authenticator):
         
         # 세션 상태 업데이트
         st.session_state.active_tab = "로그인"
-        st.experimental_rerun()
+        st.rerun()
 
 # 사용자 데이터 관리
 def save_user_data(username, data):

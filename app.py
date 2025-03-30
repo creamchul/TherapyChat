@@ -97,7 +97,7 @@ with st.sidebar:
                 
                 # 채팅 초기화
                 initialize_chat_history()
-                st.experimental_rerun()
+                st.rerun()
                 
             elif authentication_status == False:
                 st.error("사용자 이름 또는 비밀번호가 잘못되었습니다.")
@@ -106,7 +106,7 @@ with st.sidebar:
             st.markdown("---")
             if st.button("계정이 없으신가요? 회원가입 하기"):
                 st.session_state.active_tab = "회원가입"
-                st.experimental_rerun()
+                st.rerun()
         
         elif selected_tab == "회원가입":
             register_user(authenticator)
@@ -115,7 +115,7 @@ with st.sidebar:
             st.markdown("---")
             if st.button("이미 계정이 있으신가요? 로그인 하기"):
                 st.session_state.active_tab = "로그인"
-                st.experimental_rerun()
+                st.rerun()
     else:
         st.subheader(f"사용자: {st.session_state.username}")
         if st.button("로그아웃", key="logout_button"):
@@ -142,7 +142,7 @@ with st.sidebar:
             st.session_state.active_tab = "로그인"
             if 'messages' in st.session_state:
                 del st.session_state.messages
-            st.experimental_rerun()
+            st.rerun()
 
 # 감정 선택 옵션 (로그인 한 경우만)
 if st.session_state.logged_in:
@@ -165,7 +165,7 @@ if st.session_state.logged_in:
         ):
             st.session_state.selected_emotion = emotion
             st.session_state.chat_started = False
-            st.experimental_rerun()
+            st.rerun()
 
 # 메인 컨텐츠
 st.markdown("<h1 class='main-header'>감정 치유 AI 챗봇</h1>", unsafe_allow_html=True)
@@ -188,7 +188,7 @@ else:
             if st.button("AI 상담사와 대화 시작하기"):
                 st.session_state.chat_started = True
                 greeting = start_new_chat(st.session_state.selected_emotion)
-                st.experimental_rerun()
+                st.rerun()
         else:
             # 채팅 인터페이스
             initialize_chat_history()
@@ -218,13 +218,13 @@ else:
                     if detected_emotion:
                         st.session_state.selected_emotion = detected_emotion
                         st.info(f"감정 분석: '{detected_emotion}'을(를) 느끼고 계신 것 같습니다.")
-                        st.experimental_rerun()
+                        st.rerun()
             
             # 새 채팅 시작 버튼
             if st.button("새 대화 시작"):
                 st.session_state.chat_started = False
                 st.session_state.selected_emotion = None
-                st.experimental_rerun()
+                st.rerun()
 
 # 푸터
 st.markdown("---")

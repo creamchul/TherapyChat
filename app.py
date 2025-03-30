@@ -71,17 +71,22 @@ if 'selected_emotion' not in st.session_state:
     st.session_state.selected_emotion = None
 if 'chat_started' not in st.session_state:
     st.session_state.chat_started = False
+if 'active_tab' not in st.session_state:
+    st.session_state.active_tab = "로그인"
 
 # 사이드바 - 로그인/로그아웃
 with st.sidebar:
-    st.markdown("<h2 class='sub-header'>로그인</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 class='sub-header'>사용자 인증</h2>", unsafe_allow_html=True)
     
     if not st.session_state.logged_in:
-        # 로그인 탭과 회원가입 탭
-        tab1, tab2 = st.tabs(["로그인", "회원가입"])
+        # 탭 선택
+        tab_options = ["로그인", "회원가입"]
+        selected_tab = st.radio("", tab_options, index=tab_options.index(st.session_state.active_tab))
+        st.session_state.active_tab = selected_tab
         
-        with tab1:
-            name, authentication_status, username = authenticator.login("로그인", "main")
+        if selected_tab == "로그인":
+            st.subheader("로그인")
+            name, authentication_status, username = authenticator.login("", "main")
             if authentication_status:
                 st.session_state.logged_in = True
                 st.session_state.username = username
@@ -92,15 +97,28 @@ with st.sidebar:
                 
                 # 채팅 초기화
                 initialize_chat_history()
+                st.experimental_rerun()
                 
             elif authentication_status == False:
                 st.error("사용자 이름 또는 비밀번호가 잘못되었습니다.")
+            
+            # 회원가입으로 이동 버튼
+            st.markdown("---")
+            if st.button("계정이 없으신가요? 회원가입 하기"):
+                st.session_state.active_tab = "회원가입"
+                st.experimental_rerun()
         
-        with tab2:
+        elif selected_tab == "회원가입":
             register_user(authenticator)
+            
+            # 로그인으로 이동 버튼
+            st.markdown("---")
+            if st.button("이미 계정이 있으신가요? 로그인 하기"):
+                st.session_state.active_tab = "로그인"
+                st.experimental_rerun()
     else:
-        st.write(f"로그인 상태: {st.session_state.username}")
-        if st.button("로그아웃"):
+        st.subheader(f"사용자: {st.session_state.username}")
+        if st.button("로그아웃", key="logout_button"):
             # 사용자 데이터 저장
             if 'messages' in st.session_state:
                 if 'user_data' not in st.session_state:
@@ -121,32 +139,33 @@ with st.sidebar:
             st.session_state.logged_in = False
             st.session_state.selected_emotion = None
             st.session_state.chat_started = False
+            st.session_state.active_tab = "로그인"
             if 'messages' in st.session_state:
                 del st.session_state.messages
             st.experimental_rerun()
+
+# 감정 선택 옵션 (로그인 한 경우만)
+if st.session_state.logged_in:
+    st.markdown("<h2 class='sub-header'>감정 선택</h2>", unsafe_allow_html=True)
+    st.write("현재 느끼는 감정을 선택해주세요:")
     
-    # 감정 선택 옵션 (로그인 한 경우만)
-    if st.session_state.logged_in:
-        st.markdown("<h2 class='sub-header'>감정 선택</h2>", unsafe_allow_html=True)
-        st.write("현재 느끼는 감정을 선택해주세요:")
+    # 감정 버튼 그리드 생성
+    emotion_cols = st.columns(2)
+    for i, (emotion, description) in enumerate(EMOTIONS.items()):
+        col_idx = i % 2
+        btn_class = "emotion-button"
+        if st.session_state.selected_emotion == emotion:
+            btn_class += " emotion-selected"
         
-        # 감정 버튼 그리드 생성
-        emotion_cols = st.columns(2)
-        for i, (emotion, description) in enumerate(EMOTIONS.items()):
-            col_idx = i % 2
-            btn_class = "emotion-button"
-            if st.session_state.selected_emotion == emotion:
-                btn_class += " emotion-selected"
-            
-            if emotion_cols[col_idx].button(
-                emotion, 
-                key=f"emotion_{emotion}", 
-                help=description,
-                use_container_width=True
-            ):
-                st.session_state.selected_emotion = emotion
-                st.session_state.chat_started = False
-                st.experimental_rerun()
+        if emotion_cols[col_idx].button(
+            emotion, 
+            key=f"emotion_{emotion}", 
+            help=description,
+            use_container_width=True
+        ):
+            st.session_state.selected_emotion = emotion
+            st.session_state.chat_started = False
+            st.experimental_rerun()
 
 # 메인 컨텐츠
 st.markdown("<h1 class='main-header'>감정 치유 AI 챗봇</h1>", unsafe_allow_html=True)

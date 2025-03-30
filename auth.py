@@ -50,51 +50,54 @@ def setup_auth():
 
 # 새 사용자 등록 기능
 def register_user(authenticator):
-    try:
-        if 'username' not in st.session_state:
-            # 새 사용자 등록 폼
-            with st.form("회원가입"):
-                st.subheader("새 계정 만들기")
-                username = st.text_input("사용자 이름")
-                name = st.text_input("이름")
-                email = st.text_input("이메일")
-                password = st.text_input("비밀번호", type="password")
-                confirm_password = st.text_input("비밀번호 확인", type="password")
-                
-                submit = st.form_submit_button("가입하기")
-                
-                if submit:
-                    try:
-                        if password != confirm_password:
-                            st.error("비밀번호가 일치하지 않습니다.")
-                            return
-                            
-                        config_file = 'config.yaml'
-                        with open(config_file) as file:
-                            config = yaml.load(file, Loader=SafeLoader)
-                            
-                        if username in config['credentials']['usernames']:
-                            st.error("이미 존재하는 사용자 이름입니다.")
-                            return
-                            
-                        # 새 사용자 추가
-                        hasher = stauth.Hasher()
-                        hashed_password = hasher.hash(password)
-                        config['credentials']['usernames'][username] = {
-                            'name': name,
-                            'password': hashed_password,
-                            'email': email
-                        }
-                        
-                        with open(config_file, 'w') as file:
-                            yaml.dump(config, file, default_flow_style=False)
-                            
-                        st.success("계정이 생성되었습니다. 로그인해 주세요.")
-                        st.experimental_rerun()
-                    except Exception as e:
-                        st.error(f"오류가 발생했습니다: {e}")
-    except Exception as e:
-        st.error(f"오류가 발생했습니다: {e}")
+    st.subheader("새 계정 만들기")
+    
+    # 폼 입력 필드 생성
+    username = st.text_input("사용자 이름", key="reg_username")
+    name = st.text_input("이름", key="reg_name")
+    email = st.text_input("이메일", key="reg_email")
+    password = st.text_input("비밀번호", type="password", key="reg_password")
+    password_confirm = st.text_input("비밀번호 확인", type="password", key="reg_password_confirm")
+    
+    # 가입 버튼
+    if st.button("가입하기", key="reg_submit"):
+        # 입력 검증
+        if not username or not name or not email or not password:
+            st.error("모든 필드를 입력해주세요.")
+            return
+            
+        if password != password_confirm:
+            st.error("비밀번호가 일치하지 않습니다.")
+            return
+            
+        # 설정 파일 로드
+        config_file = Path("config.yaml")
+        with open(config_file) as file:
+            config = yaml.load(file, Loader=SafeLoader)
+            
+        # 사용자 이름 중복 확인
+        if username in config['credentials']['usernames']:
+            st.error("이미 존재하는 사용자 이름입니다.")
+            return
+            
+        # 새 사용자 추가
+        hasher = stauth.Hasher()
+        hashed_password = hasher.hash(password)
+        config['credentials']['usernames'][username] = {
+            'name': name,
+            'password': hashed_password,
+            'email': email
+        }
+        
+        # 설정 파일 저장
+        with open(config_file, 'w') as file:
+            yaml.dump(config, file, default_flow_style=False)
+            
+        st.success("계정이 생성되었습니다. 로그인해 주세요.")
+        
+        # 세션 상태 업데이트
+        st.session_state.active_tab = "로그인"
+        st.experimental_rerun()
 
 # 사용자 데이터 관리
 def save_user_data(username, data):

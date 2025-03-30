@@ -1,10 +1,23 @@
 import streamlit as st
-import streamlit_authenticator as stauth
 import yaml
 from yaml.loader import SafeLoader
 import os
 import pickle
 from pathlib import Path
+import hashlib
+import uuid
+import datetime
+
+# 비밀번호 해싱 함수
+def hash_password(password):
+    """비밀번호를 안전하게 해싱합니다."""
+    salt = uuid.uuid4().hex
+    return hashlib.sha256(salt.encode() + password.encode()).hexdigest() + ':' + salt
+
+def check_password(hashed_password, user_password):
+    """해시된 비밀번호와 사용자 입력 비밀번호를 비교합니다."""
+    password, salt = hashed_password.split(':')
+    return password == hashlib.sha256(salt.encode() + user_password.encode()).hexdigest()
 
 # 사용자 인증 설정
 def setup_auth():
@@ -12,13 +25,11 @@ def setup_auth():
     config_file = Path("config.yaml")
     if not config_file.exists():
         # 기본 사용자 생성
-        passwords = ["guest"]
-        hashed_passwords = stauth.Hasher(passwords).generate()
         credentials = {
             'usernames': {
                 'guest': {
                     'name': '게스트',
-                    'password': hashed_passwords[0],
+                    'password': hash_password('guest'),
                     'email': 'guest@example.com'
                 }
             }
@@ -26,9 +37,7 @@ def setup_auth():
         config = {
             'credentials': credentials,
             'cookie': {
-                'expiry_days': 30,
-                'key': 'emotion_healing_app',
-                'name': 'emotion_healing_cookie'
+                'expiry_days': 30
             }
         }
         with open(config_file, 'w') as file:
@@ -37,19 +46,28 @@ def setup_auth():
     # 설정 파일 로드
     with open(config_file) as file:
         config = yaml.load(file, Loader=SafeLoader)
-
-    # 인증자 생성 - 0.1.5 버전 형식으로 변경
-    authenticator = stauth.Authenticate(
-        config['credentials'],
-        config['cookie']['name'],
-        config['cookie']['expiry_days'],
-        config['cookie']['key']
-    )
     
-    return authenticator
+    # 인증 클래스 대신 딕셔너리 반환
+    return config['credentials']
+
+# 로그인 함수
+def login(credentials, username, password):
+    """사용자 로그인을 처리합니다."""
+    if username in credentials['usernames']:
+        if check_password(credentials['usernames'][username]['password'], password):
+            return True, credentials['usernames'][username]['name']
+    return False, None
+
+# 로그아웃 함수
+def logout():
+    """사용자 로그아웃을 처리합니다."""
+    for key in list(st.session_state.keys()):
+        if key in ['active_tab']:  # 유지할 세션 상태
+            continue
+        del st.session_state[key]
 
 # 새 사용자 등록 기능
-def register_user(authenticator):
+def register_user(credentials):
     st.subheader("새 계정 만들기")
     
     # 폼 입력 필드 생성
@@ -85,10 +103,10 @@ def register_user(authenticator):
                     return
                     
                 # 새 사용자 추가
-                hashed_passwords = stauth.Hasher([password]).generate()
+                hashed_password = hash_password(password)
                 config['credentials']['usernames'][username] = {
                     'name': name,
-                    'password': hashed_passwords[0],
+                    'password': hashed_password,
                     'email': email
                 }
                 

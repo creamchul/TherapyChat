@@ -1,7 +1,7 @@
 import streamlit as st
 import os
 from dotenv import load_dotenv
-from auth import setup_auth, register_user, save_user_data, load_user_data
+from auth import setup_auth, register_user, save_user_data, load_user_data, login, logout
 from chatbot import EMOTIONS, initialize_chat_history, display_chat_history, add_message, get_ai_response, start_new_chat, analyze_emotion
 
 # 환경 변수 로드
@@ -61,8 +61,8 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# 인증 설정
-authenticator = setup_auth()
+# 인증 정보 설정
+credentials = setup_auth()
 
 # 세션 상태 초기화
 if 'logged_in' not in st.session_state:
@@ -94,11 +94,11 @@ with st.sidebar:
                     login_button = st.button("로그인")
                     
                     if login_button:
-                        if authenticator.login(username, password):
+                        success, name = login(credentials, username, password)
+                        if success:
                             st.session_state.logged_in = True
                             st.session_state.username = username
-                            user_info = authenticator.credentials['usernames'][username]
-                            st.success(f"환영합니다, {user_info['name']}님!")
+                            st.success(f"환영합니다, {name}님!")
                             
                             # 사용자 데이터 로드
                             st.session_state.user_data = load_user_data(username)
@@ -119,7 +119,7 @@ with st.sidebar:
                 st.rerun()
         
         elif selected_tab == "회원가입":
-            register_user(authenticator)
+            register_user(credentials)
             
             # 로그인으로 이동 버튼
             st.markdown("---")
@@ -146,13 +146,8 @@ with st.sidebar:
             
             # 로그아웃 처리
             try:
-                authenticator.logout()
-                st.session_state.logged_in = False
-                st.session_state.selected_emotion = None
-                st.session_state.chat_started = False
+                logout()
                 st.session_state.active_tab = "로그인"
-                if 'messages' in st.session_state:
-                    del st.session_state.messages
                 st.rerun()
             except Exception as e:
                 st.error(f"로그아웃 중 오류가 발생했습니다: {e}")

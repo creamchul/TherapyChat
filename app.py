@@ -29,19 +29,204 @@ st.set_page_config(
 # CSS 스타일 적용
 st.markdown("""
 <style>
+    /* 기본 스타일 */
+    :root {
+        --primary-color: #4f8bf9;
+        --background-color: #f9f9f9;
+        --card-background: white;
+        --text-color: #333;
+        --secondary-text-color: #666;
+        --border-color: #e0e0e0;
+        --hover-color: #f9f9ff;
+        --button-color: #6a89cc;
+        --button-hover: #5679c1;
+        --warning-color: #f44336;
+        --success-color: #4CAF50;
+    }
+    
+    /* 다크 모드 */
+    @media (prefers-color-scheme: dark) {
+        :root {
+            --primary-color: #6a89cc;
+            --background-color: #1e1e1e;
+            --card-background: #2d2d2d;
+            --text-color: #f0f0f0;
+            --secondary-text-color: #aaaaaa;
+            --border-color: #444444;
+            --hover-color: #3d3d3d;
+            --button-color: #5679c1;
+            --button-hover: #4a6cb3;
+            --warning-color: #ff5252;
+            --success-color: #81c784;
+        }
+        
+        .st-emotion-cache-zt5igj {
+            color: var(--text-color) !important;
+        }
+        
+        .stTextInput input, .stSelectbox, .stDateInput input, .stTextArea textarea {
+            background-color: var(--card-background) !important;
+            color: var(--text-color) !important;
+            border-color: var(--border-color) !important;
+        }
+        
+        .stDataFrame {
+            background-color: var(--card-background) !important;
+        }
+        
+        .stDataFrame th {
+            background-color: var(--primary-color) !important;
+            color: white !important;
+        }
+        
+        .stDataFrame td {
+            color: var(--text-color) !important;
+        }
+        
+        .chat-card {
+            background-color: var(--card-background) !important;
+            color: var(--text-color) !important;
+            border-color: var(--border-color) !important;
+        }
+        
+        .chat-card:hover {
+            background-color: var(--hover-color) !important;
+        }
+    }
+    
+    /* 반응형 디자인 */
+    @media (max-width: 768px) {
+        .main-header {
+            font-size: 1.8rem !important;
+        }
+        
+        .sub-header {
+            font-size: 1.2rem !important;
+        }
+        
+        .emotion-button {
+            padding: 8px !important;
+            margin: 3px !important;
+            font-size: 0.9rem !important;
+        }
+        
+        .chat-container {
+            height: 350px !important;
+            padding: 15px !important;
+        }
+        
+        .chat-card {
+            padding: 10px !important;
+            margin-bottom: 10px !important;
+        }
+        
+        /* 모바일에서 테이블 스크롤 가능하게 */
+        .dataframe-container {
+            overflow-x: auto !important;
+            width: 100% !important;
+        }
+    }
+    
+    /* 공통 스타일 */
+    body {
+        color: var(--text-color);
+        background-color: var(--background-color);
+    }
+    
     .main-header {
         font-size: 2.5rem;
-        color: #4f8bf9;
+        color: var(--primary-color);
         text-align: center;
         margin-bottom: 1rem;
     }
+    
     .sub-header {
         font-size: 1.5rem;
-        color: #4f8bf9;
+        color: var(--primary-color);
         margin-bottom: 1rem;
     }
+    
+    /* 테이블 스타일 개선 */
+    .dataframe-container {
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+    }
+    
+    .table-controls {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+        flex-wrap: wrap;
+    }
+    
+    .table-search {
+        flex: 1;
+        max-width: 300px;
+        margin-right: 10px;
+    }
+    
+    .table-page-controls {
+        display: flex;
+        align-items: center;
+    }
+    
+    .table-page-controls button {
+        margin: 0 5px;
+        min-width: 30px;
+    }
+    
+    .sortable-header {
+        cursor: pointer;
+        position: relative;
+    }
+    
+    .sortable-header:hover {
+        background-color: rgba(0,0,0,0.05);
+    }
+    
+    .sortable-header::after {
+        content: "↕";
+        position: absolute;
+        right: 8px;
+        opacity: 0.5;
+    }
+    
+    .sort-asc::after {
+        content: "↑";
+        opacity: 1;
+    }
+    
+    .sort-desc::after {
+        content: "↓";
+        opacity: 1;
+    }
+    
+    /* 다크/라이트 모드 전환 버튼 */
+    .theme-toggle {
+        position: fixed;
+        top: 10px;
+        right: 10px;
+        z-index: 1000;
+        background-color: var(--card-background);
+        color: var(--text-color);
+        border: 1px solid var(--border-color);
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-size: 20px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    
+    /* 기존 스타일 유지 및 변수로 변경 */
     .emotion-button {
-        background-color: #f0f2f6;
+        background-color: var(--background-color);
         border-radius: 10px;
         padding: 10px;
         margin: 5px;
@@ -49,48 +234,54 @@ st.markdown("""
         cursor: pointer;
         transition: background-color 0.3s;
     }
+    
     .emotion-button:hover {
-        background-color: #e0e2e6;
+        background-color: var(--hover-color);
     }
+    
     .emotion-selected {
-        background-color: #c0c2c6;
+        background-color: var(--button-color);
+        color: white;
         font-weight: bold;
     }
+    
     .chat-container {
         border-radius: 10px;
         padding: 20px;
-        background-color: #f9f9f9;
+        background-color: var(--background-color);
         height: 400px;
         overflow-y: auto;
     }
+    
     .stTextInput > div > div > input {
         border-radius: 20px;
     }
-    .st-emotion-cache-1q7pdpx e1vs0wn31 {
-        border-radius: 20px;
-    }
+    
     .emoji {
         font-size: 1.2rem;
         margin-right: 8px;
     }
+    
     .chat-card {
-        border: 1px solid #e0e0e0;
+        border: 1px solid var(--border-color);
         border-radius: 10px;
         padding: 15px;
         margin-bottom: 15px;
-        background-color: white;
+        background-color: var(--card-background);
         box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         transition: transform 0.2s, box-shadow 0.2s;
         position: relative;
         z-index: 1;
         cursor: pointer;
     }
+    
     .chat-card:hover {
         transform: translateY(-2px);
         box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-        background-color: #f9f9ff;
-        border-color: #6a89cc;
+        background-color: var(--hover-color);
+        border-color: var(--button-color);
     }
+    
     .chat-card:after {
         content: "›";
         position: absolute;
@@ -98,13 +289,15 @@ st.markdown("""
         top: 50%;
         transform: translateY(-50%);
         font-size: 24px;
-        color: #6a89cc;
+        color: var(--button-color);
         opacity: 0;
         transition: opacity 0.2s;
     }
+    
     .chat-card:hover:after {
         opacity: 1;
     }
+    
     /* Streamlit 버튼 스타일링 - 보이지 않지만 클릭 가능하게 */
     div.chat-history-card div.stButton {
         position: absolute;
@@ -114,6 +307,7 @@ st.markdown("""
         height: 100%;
         z-index: 2;
     }
+    
     div.chat-history-card div.stButton > button {
         position: absolute;
         top: 0;
@@ -126,49 +320,60 @@ st.markdown("""
         color: transparent !important;
         opacity: 0 !important;
     }
+    
     .chat-card-header {
-        border-bottom: 1px solid #f0f0f0;
+        border-bottom: 1px solid var(--border-color);
         padding-bottom: 10px;
         margin-bottom: 10px;
         display: flex;
         justify-content: space-between;
     }
+    
     .chat-card-emotion {
         font-weight: bold;
-        color: #4f8bf9;
+        color: var(--primary-color);
     }
+    
     .chat-card-date {
-        color: #888;
+        color: var(--secondary-text-color);
         font-size: 0.9rem;
     }
+    
     .chat-card-preview {
-        color: #555;
+        color: var(--text-color);
         overflow: hidden;
         text-overflow: ellipsis;
         display: -webkit-box;
         -webkit-line-clamp: 2;
         -webkit-box-orient: vertical;
     }
+    
     .filter-section {
-        background-color: #f9f9f9;
+        background-color: var(--background-color);
         border-radius: 10px;
         padding: 15px;
         margin-bottom: 20px;
+        border: 1px solid var(--border-color);
     }
+    
     .filter-title {
         font-size: 1.2rem;
         font-weight: bold;
         margin-bottom: 10px;
+        color: var(--primary-color);
     }
+    
     .filter-item {
         margin-bottom: 5px;
     }
+    
     .action-button {
         border-radius: 20px;
         padding: 10px 15px;
         font-weight: bold;
         transition: all 0.3s;
     }
+    
     .icon-button {
         display: flex;
         justify-content: center;
@@ -180,72 +385,131 @@ st.markdown("""
         cursor: pointer;
         transition: background-color 0.3s;
     }
+    
     .view-button {
-        background-color: #f0f2f6;
-        color: #4f8bf9;
+        background-color: var(--background-color);
+        color: var(--primary-color);
     }
+    
     .view-button:hover {
-        background-color: #e0e2e6;
+        background-color: var(--hover-color);
     }
+    
     .delete-button {
         background-color: #ffebee;
-        color: #f44336;
+        color: var(--warning-color);
     }
+    
     .delete-button:hover {
         background-color: #ffcdd2;
     }
+    
+    .pagination-button {
+        margin: 0 4px;
+        padding: 6px 12px;
+        border-radius: 4px;
+        background-color: var(--background-color);
+        color: var(--text-color);
+        border: 1px solid var(--border-color);
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    
+    .pagination-button:hover {
+        background-color: var(--hover-color);
+    }
+    
+    .pagination-active {
+        background-color: var(--primary-color);
+        color: white;
+        border-color: var(--primary-color);
+    }
+    
     .filter-badge {
         display: inline-block;
-        background-color: #e8f0fe;
-        color: #4f8bf9;
-        border-radius: 16px;
-        padding: 5px 10px;
-        margin-right: 5px;
-        margin-bottom: 5px;
-        font-size: 0.85rem;
+        padding: 4px 8px;
+        margin: 2px;
+        border-radius: 4px;
+        background-color: var(--button-color);
+        color: white;
+        font-size: 0.8rem;
     }
-    /* 날짜 선택 입력 필드 스타일 개선 */
-    .stDateInput > div > div > input {
-        border-radius: 8px;
+    
+    /* 로그인/회원가입 버튼 스타일 */
+    .login-button, .auth-container button {
+        display: block;
+        width: 100%;
+        background-color: var(--button-color);
+        color: white;
+        padding: 8px 15px;
+        border-radius: 5px;
+        border: none;
+        cursor: pointer;
+        font-weight: 500;
+        margin: 8px 0;
+        text-align: center;
+        opacity: 1;
+        position: relative;
     }
-    /* 로그인 및 회원가입 버튼 스타일 */
-    div.auth-container button {
-        display: block !important;
-        opacity: 1 !important;
-        position: relative !important;
-        background-color: #6a89cc !important;
-        color: white !important;
-        border-radius: 5px !important;
-        border: none !important;
-        padding: 0.5rem 1rem !important;
-        margin: 0.5rem 0 !important;
-        width: auto !important;
-        height: auto !important;
-        font-weight: 500 !important;
-        text-align: center !important;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.1) !important;
+    
+    .login-button:hover, .auth-container button:hover {
+        background-color: var(--button-hover);
     }
-    div.auth-container button:hover {
-        background-color: #5679c1 !important;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.15) !important;
-    }
-    /* 특정 스타일 적용을 위한 클래스 */
-    .login-button {
-        display: block !important;
-        width: 100% !important;
-        background-color: #6a89cc !important;
-        color: white !important;
-        border-radius: 4px !important;
-        border: none !important;
-        padding: 0.5rem !important;
-        margin-top: 1rem !important;
-        font-weight: 500 !important;
-        cursor: pointer !important;
-    }
-    .login-button:hover {
-        background-color: #5679c1 !important;
+    
+    /* 다크 모드 토글을 위한 스크립트 */
+    .dark-mode-toggle {
+        position: fixed;
+        top: 10px;
+        right: 10px;
+        z-index: 9999;
+        background-color: var(--card-background);
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        border: 1px solid var(--border-color);
+        transition: all 0.3s ease;
     }
 </style>
+
+<script>
+    // 다크 모드 토글 함수
+    function toggleDarkMode() {
+        const body = document.body;
+        if (body.classList.contains('dark-mode')) {
+            body.classList.remove('dark-mode');
+            localStorage.setItem('theme', 'light');
+            document.getElementById('darkModeToggle').innerHTML = '🌙';
+        } else {
+            body.classList.add('dark-mode');
+            localStorage.setItem('theme', 'dark');
+            document.getElementById('darkModeToggle').innerHTML = '☀️';
+        }
+    }
+    
+    // 페이지 로드 시 적용
+    document.addEventListener('DOMContentLoaded', function() {
+        const savedTheme = localStorage.getItem('theme');
+        const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        
+        if (savedTheme === 'dark' || (savedTheme === null && prefersDark)) {
+            document.body.classList.add('dark-mode');
+            document.getElementById('darkModeToggle').innerHTML = '☀️';
+        } else {
+            document.getElementById('darkModeToggle').innerHTML = '🌙';
+        }
+        
+        // 다크 모드 토글 버튼 클릭 이벤트
+        document.getElementById('darkModeToggle').addEventListener('click', toggleDarkMode);
+    });
+</script>
+
+<!-- 다크 모드 토글 버튼 -->
+<div id="darkModeToggle" class="dark-mode-toggle">🌙</div>
 """, unsafe_allow_html=True)
 
 # 인증 정보 설정
@@ -977,24 +1241,7 @@ else:
                         display_df.columns = ['날짜', '감정']
                         
                         # 테이블로 표시
-                        st.dataframe(display_df, use_container_width=True)
-                        
-                        # 추가 분석 텍스트
-                        most_common_emotion = filtered_df['emotion'].mode()[0]
-                        st.markdown(f"**분석 기간 동안 가장 많이 느낀 감정:** {most_common_emotion}")
-                        
-                        # 감정 빈도 분석
-                        emotion_counts = filtered_df['emotion'].value_counts()
-                        
-                        # 데이터프레임으로 변환
-                        emotion_freq_df = pd.DataFrame({
-                            '감정': emotion_counts.index,
-                            '빈도': emotion_counts.values,
-                            '비율(%)': (emotion_counts.values / emotion_counts.sum() * 100).round(1)
-                        })
-                        
-                        st.markdown("#### 감정 빈도 분석")
-                        st.dataframe(emotion_freq_df, use_container_width=True)
+                        display_dataframe_with_pagination(display_df)
                 
                 with tab2:
                     st.subheader("주간/월간 감정 리포트")
@@ -1048,7 +1295,7 @@ else:
                                 emotion_dist_df = emotion_dist_df.sort_values('횟수', ascending=False)
                                 
                                 # 테이블 표시
-                                st.dataframe(emotion_dist_df, use_container_width=True)
+                                display_dataframe_with_pagination(emotion_dist_df)
                                 
                                 # 요약 통계
                                 st.markdown("### 주간 감정 요약")
@@ -1112,7 +1359,7 @@ else:
                                 emotion_monthly_df = emotion_monthly_df.sort_values('횟수', ascending=False)
                                 
                                 # 테이블 표시
-                                st.dataframe(emotion_monthly_df, use_container_width=True)
+                                display_dataframe_with_pagination(emotion_monthly_df)
                                 
                                 # 요약 통계
                                 st.markdown("### 월간 감정 요약")
@@ -1149,7 +1396,7 @@ else:
                     })
                     
                     # 테이블 표시
-                    st.dataframe(emotion_overall_df, use_container_width=True)
+                    display_dataframe_with_pagination(emotion_overall_df)
                     
                     # 시간대별 감정 분석
                     st.markdown("### 시간대별 감정 패턴")
@@ -1321,4 +1568,118 @@ if (st.session_state.logged_in and
 
 # 푸터
 st.markdown("---")
-st.markdown("© 2025 감정 치유 AI 챗봇 | 개인 정보는 안전하게 보호됩니다.") 
+st.markdown("© 2025 감정 치유 AI 챗봇 | 개인 정보는 안전하게 보호됩니다.")
+
+# 테이블 표시 함수 추가
+def display_dataframe_with_pagination(df, key_prefix="table"):
+    # 페이지 상태 초기화
+    if f"{key_prefix}_page" not in st.session_state:
+        st.session_state[f"{key_prefix}_page"] = 1
+    
+    if f"{key_prefix}_page_size" not in st.session_state:
+        st.session_state[f"{key_prefix}_page_size"] = 10
+    
+    if f"{key_prefix}_sort_by" not in st.session_state:
+        st.session_state[f"{key_prefix}_sort_by"] = None
+    
+    if f"{key_prefix}_sort_ascending" not in st.session_state:
+        st.session_state[f"{key_prefix}_sort_ascending"] = True
+    
+    if f"{key_prefix}_search" not in st.session_state:
+        st.session_state[f"{key_prefix}_search"] = ""
+    
+    # 컨트롤 영역
+    st.markdown('<div class="table-controls">', unsafe_allow_html=True)
+    
+    # 검색 및 페이지 크기 선택
+    col1, col2 = st.columns([3, 1])
+    
+    with col1:
+        search = st.text_input(
+            "검색", 
+            value=st.session_state[f"{key_prefix}_search"],
+            key=f"{key_prefix}_search_input"
+        )
+        st.session_state[f"{key_prefix}_search"] = search
+    
+    with col2:
+        page_size = st.selectbox(
+            "페이지 크기", 
+            [5, 10, 25, 50], 
+            index=[5, 10, 25, 50].index(st.session_state[f"{key_prefix}_page_size"]),
+            key=f"{key_prefix}_size_select"
+        )
+        st.session_state[f"{key_prefix}_page_size"] = page_size
+    
+    # 검색 필터링
+    if search:
+        filtered_df = df[df.apply(lambda row: any(str(search).lower() in str(cell).lower() for cell in row), axis=1)]
+    else:
+        filtered_df = df
+    
+    # 정렬
+    if st.session_state[f"{key_prefix}_sort_by"] is not None and st.session_state[f"{key_prefix}_sort_by"] in filtered_df.columns:
+        filtered_df = filtered_df.sort_values(
+            by=st.session_state[f"{key_prefix}_sort_by"],
+            ascending=st.session_state[f"{key_prefix}_sort_ascending"]
+        )
+    
+    # 총 페이지 수 계산
+    total_pages = max(1, (len(filtered_df) + page_size - 1) // page_size)
+    
+    # 현재 페이지가 유효한지 확인하고 조정
+    if st.session_state[f"{key_prefix}_page"] > total_pages:
+        st.session_state[f"{key_prefix}_page"] = total_pages
+    
+    # 현재 페이지 데이터 슬라이싱
+    start_idx = (st.session_state[f"{key_prefix}_page"] - 1) * page_size
+    end_idx = min(start_idx + page_size, len(filtered_df))
+    page_df = filtered_df.iloc[start_idx:end_idx].copy()
+    
+    # 데이터프레임 표시
+    st.markdown(f'<div class="dataframe-container">', unsafe_allow_html=True)
+    st.dataframe(page_df, use_container_width=True, hide_index=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    # 페이지네이션 컨트롤
+    col1, col2, col3 = st.columns([1, 3, 1])
+    
+    with col1:
+        if st.button("◀ 이전", key=f"{key_prefix}_prev", disabled=st.session_state[f"{key_prefix}_page"] <= 1):
+            st.session_state[f"{key_prefix}_page"] -= 1
+            st.rerun()
+    
+    with col2:
+        # 페이지 번호 표시
+        page_text = f"<div style='text-align: center;'>{st.session_state[f'{key_prefix}_page']} / {total_pages} 페이지 (총 {len(filtered_df)}개 항목)</div>"
+        st.markdown(page_text, unsafe_allow_html=True)
+    
+    with col3:
+        if st.button("다음 ▶", key=f"{key_prefix}_next", disabled=st.session_state[f"{key_prefix}_page"] >= total_pages):
+            st.session_state[f"{key_prefix}_page"] += 1
+            st.rerun()
+    
+    # 컬럼 정렬 버튼
+    st.markdown("<div style='display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap;'>", unsafe_allow_html=True)
+    
+    for col in df.columns:
+        sort_key = f"{key_prefix}_sort_{col}"
+        is_sorted = st.session_state[f"{key_prefix}_sort_by"] == col
+        sort_direction = "↑" if is_sorted and st.session_state[f"{key_prefix}_sort_ascending"] else "↓"
+        
+        if st.button(
+            f"{col} {sort_direction if is_sorted else ''}",
+            key=sort_key,
+            type="secondary" if not is_sorted else "primary",
+            help=f"{col}으로 정렬하기"
+        ):
+            if st.session_state[f"{key_prefix}_sort_by"] == col:
+                st.session_state[f"{key_prefix}_sort_ascending"] = not st.session_state[f"{key_prefix}_sort_ascending"]
+            else:
+                st.session_state[f"{key_prefix}_sort_by"] = col
+                st.session_state[f"{key_prefix}_sort_ascending"] = True
+            st.rerun()
+    
+    st.markdown("</div>", unsafe_allow_html=True)
+    
+    return filtered_df 

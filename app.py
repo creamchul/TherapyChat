@@ -1401,7 +1401,7 @@ else:
                         display_df.columns = ['날짜', '감정']
                         
                         # 테이블로 표시
-                        display_dataframe_with_pagination(display_df)
+                        display_dataframe_with_pagination(display_df, key="emotion_change")
                 
                 with tab2:
                     st.subheader("주간/월간 감정 리포트")
@@ -1455,7 +1455,7 @@ else:
                                 emotion_dist_df = emotion_dist_df.sort_values('횟수', ascending=False)
                                 
                                 # 테이블 표시
-                                display_dataframe_with_pagination(emotion_dist_df)
+                                display_dataframe_with_pagination(emotion_dist_df, key="weekly_emotion")
                                 
                                 # 요약 통계
                                 st.markdown("### 주간 감정 요약")
@@ -1519,7 +1519,7 @@ else:
                                 emotion_monthly_df = emotion_monthly_df.sort_values('횟수', ascending=False)
                                 
                                 # 테이블 표시
-                                display_dataframe_with_pagination(emotion_monthly_df)
+                                display_dataframe_with_pagination(emotion_monthly_df, key="monthly_emotion")
                                 
                                 # 요약 통계
                                 st.markdown("### 월간 감정 요약")
@@ -1556,7 +1556,7 @@ else:
                     })
                     
                     # 테이블 표시
-                    display_dataframe_with_pagination(emotion_overall_df)
+                    display_dataframe_with_pagination(emotion_overall_df, key="overall_emotion")
                     
                     # 시간대별 감정 분석
                     st.markdown("### 시간대별 감정 패턴")

@@ -57,6 +57,7 @@ def get_ai_response(messages):
         # API 키 사용
         openai.api_key = st.session_state.api_key
         
+        # 클라이언트 객체 생성 대신 모듈 수준의 API 키 설정 방식 사용
         response = openai.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=messages,

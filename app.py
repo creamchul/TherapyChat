@@ -1,5 +1,6 @@
 import streamlit as st
 import os
+import datetime
 from dotenv import load_dotenv
 from auth import setup_auth, register_user, save_user_data, load_user_data, login, logout
 from chatbot import EMOTIONS, initialize_chat_history, display_chat_history, add_message, get_ai_response, start_new_chat, analyze_emotion
@@ -62,6 +63,42 @@ st.markdown("""
         font-size: 1.2rem;
         margin-right: 8px;
     }
+    .chat-card {
+        border: 1px solid #e0e0e0;
+        border-radius: 10px;
+        padding: 15px;
+        margin-bottom: 15px;
+        background-color: white;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        transition: transform 0.2s;
+    }
+    .chat-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+    .chat-card-header {
+        border-bottom: 1px solid #f0f0f0;
+        padding-bottom: 10px;
+        margin-bottom: 10px;
+        display: flex;
+        justify-content: space-between;
+    }
+    .chat-card-emotion {
+        font-weight: bold;
+        color: #4f8bf9;
+    }
+    .chat-card-date {
+        color: #888;
+        font-size: 0.9rem;
+    }
+    .chat-card-preview {
+        color: #555;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -91,8 +128,12 @@ if 'chat_started' not in st.session_state:
     st.session_state.chat_started = False
 if 'active_tab' not in st.session_state:
     st.session_state.active_tab = "로그인"
+if 'active_page' not in st.session_state:
+    st.session_state.active_page = "chat"
 if 'api_key' not in st.session_state:
     st.session_state.api_key = os.getenv("OPENAI_API_KEY", "")
+if 'selected_chat_id' not in st.session_state:
+    st.session_state.selected_chat_id = None
 
 # 사이드바 - 로그인/로그아웃
 with st.sidebar:
@@ -160,19 +201,28 @@ with st.sidebar:
                 st.rerun()
     else:
         st.subheader(f"사용자: {st.session_state.username}")
+        
+        # 네비게이션 메뉴
+        st.markdown("### 메뉴")
+        if st.button("💬 채팅", key="nav_chat", use_container_width=True):
+            st.session_state.active_page = "chat"
+            st.session_state.selected_chat_id = None
+            st.rerun()
+            
+        if st.button("📋 채팅 기록", key="nav_history", use_container_width=True):
+            st.session_state.active_page = "history"
+            st.rerun()
+            
+        st.markdown("---")
         if st.button("로그아웃", key="logout_button"):
             # 사용자 데이터 저장
             if 'messages' in st.session_state:
                 if 'user_data' not in st.session_state:
-                    st.session_state.user_data = {"chat_history": [], "emotions": []}
+                    st.session_state.user_data = {"chat_history": [], "chat_sessions": []}
                 
-                # 최신 채팅 기록 저장
-                if 'selected_emotion' in st.session_state and st.session_state.selected_emotion:
-                    st.session_state.user_data["emotions"].append(st.session_state.selected_emotion)
-                
-                # 채팅 기록 저장
-                chat_history = [msg for msg in st.session_state.messages if msg["role"] != "system"]
-                st.session_state.user_data["chat_history"] = chat_history
+                # 활성화된 채팅이 있으면 저장
+                if 'messages' in st.session_state and len(st.session_state.messages) > 1:
+                    save_current_chat()
                 
                 save_user_data(st.session_state.username, st.session_state.user_data)
             
@@ -184,75 +234,208 @@ with st.sidebar:
             except Exception as e:
                 st.error(f"로그아웃 중 오류가 발생했습니다: {e}")
 
+# 현재 채팅 저장 함수
+def save_current_chat():
+    if 'messages' in st.session_state and len(st.session_state.messages) > 1:
+        chat_messages = [msg for msg in st.session_state.messages if msg["role"] != "system"]
+        if not chat_messages:
+            return
+            
+        # 채팅 세션 정보 생성
+        timestamp = datetime.datetime.now().isoformat()
+        chat_id = f"chat_{timestamp}"
+        chat_preview = chat_messages[0]["content"] if chat_messages else "비어있는 대화"
+        
+        chat_session = {
+            "id": chat_id,
+            "date": timestamp,
+            "emotion": st.session_state.selected_emotion,
+            "preview": chat_preview,
+            "messages": chat_messages
+        }
+        
+        # 기존 채팅 세션 리스트 확인
+        if 'chat_sessions' not in st.session_state.user_data:
+            st.session_state.user_data['chat_sessions'] = []
+            
+        # 채팅 세션 추가
+        st.session_state.user_data['chat_sessions'].append(chat_session)
+        
+        # 사용자 데이터 저장
+        save_user_data(st.session_state.username, st.session_state.user_data)
+
 # 메인 컨텐츠
 st.markdown("<h1 class='main-header'>감정 치유 AI 챗봇</h1>", unsafe_allow_html=True)
 
 if not st.session_state.logged_in:
     st.info("로그인하면 AI 챗봇과 대화할 수 있습니다. 왼쪽 사이드바에서 로그인해주세요.")
 else:
-    # 감정 선택 페이지 또는 채팅 페이지 표시
-    if not st.session_state.selected_emotion:
-        st.markdown("<h2 class='sub-header'>감정 선택</h2>", unsafe_allow_html=True)
-        st.write("현재 느끼는 감정을 선택해주세요:")
-        
-        # 감정 버튼 그리드 생성
-        col1, col2 = st.columns(2)
-        
-        for i, (emotion, description) in enumerate(EMOTIONS.items()):
-            col = col1 if i % 2 == 0 else col2
-            icon = EMOTION_ICONS.get(emotion, "")
+    # 선택된 페이지에 따라 다른 내용 표시
+    if st.session_state.active_page == "chat":
+        # 감정 선택 페이지 또는 채팅 페이지 표시
+        if not st.session_state.selected_emotion:
+            st.markdown("<h2 class='sub-header'>감정 선택</h2>", unsafe_allow_html=True)
+            st.write("현재 느끼는 감정을 선택해주세요:")
             
-            if col.button(f"{icon} {emotion}", 
-                         key=f"emotion_{emotion}", 
-                         help=description,
-                         use_container_width=True):
-                st.session_state.selected_emotion = emotion
-                st.session_state.chat_started = True
-                start_new_chat(emotion)
-                st.rerun()
-    else:
-        # 감정이 선택된 경우
-        st.markdown(f"<h2 class='sub-header'>선택한 감정: {EMOTION_ICONS.get(st.session_state.selected_emotion, '')} {st.session_state.selected_emotion}</h2>", unsafe_allow_html=True)
-        
-        # 감정 설명
-        emotion_description = EMOTIONS.get(st.session_state.selected_emotion, "")
-        st.write(f"**{emotion_description}**")
-        
-        # 채팅 인터페이스
-        initialize_chat_history()
-        display_chat_history()
-        
-        # 사용자 입력
-        user_input = st.chat_input("메시지를 입력하세요...")
-        if user_input:
-            # API 키 확인
-            if not st.session_state.api_key:
-                st.warning("OpenAI API 키를 입력해주세요. 왼쪽 사이드바의 'OpenAI API 키 설정'에서 설정할 수 있습니다.")
-                st.stop()
+            # 감정 버튼 그리드 생성
+            col1, col2 = st.columns(2)
+            
+            for i, (emotion, description) in enumerate(EMOTIONS.items()):
+                col = col1 if i % 2 == 0 else col2
+                icon = EMOTION_ICONS.get(emotion, "")
                 
-            # 사용자 메시지 추가
-            add_message("user", user_input)
-            st.chat_message("user").write(user_input)
+                if col.button(f"{icon} {emotion}", 
+                             key=f"emotion_{emotion}", 
+                             help=description,
+                             use_container_width=True):
+                    # 이전 채팅이 있다면 저장
+                    if 'messages' in st.session_state and len(st.session_state.messages) > 1:
+                        save_current_chat()
+                        
+                    st.session_state.selected_emotion = emotion
+                    st.session_state.chat_started = True
+                    start_new_chat(emotion)
+                    st.rerun()
+        else:
+            # 감정이 선택된 경우
+            st.markdown(f"<h2 class='sub-header'>선택한 감정: {EMOTION_ICONS.get(st.session_state.selected_emotion, '')} {st.session_state.selected_emotion}</h2>", unsafe_allow_html=True)
             
-            # 채팅 기록에서 시스템 메시지를 제외한 메시지 컨텍스트 생성
-            messages_for_api = [msg for msg in st.session_state.messages if msg["role"] != "assistant" or st.session_state.messages.index(msg) == 0]
+            # 감정 설명
+            emotion_description = EMOTIONS.get(st.session_state.selected_emotion, "")
+            st.write(f"**{emotion_description}**")
             
-            # API 키 설정
-            os.environ["OPENAI_API_KEY"] = st.session_state.api_key
+            # 채팅 인터페이스
+            initialize_chat_history()
+            display_chat_history()
             
-            # AI 응답 생성
-            with st.spinner("응답 생성 중..."):
-                ai_response = get_ai_response(messages_for_api)
+            # 사용자 입력
+            user_input = st.chat_input("메시지를 입력하세요...")
+            if user_input:
+                # API 키 확인
+                if not st.session_state.api_key:
+                    st.warning("OpenAI API 키를 입력해주세요. 왼쪽 사이드바의 'OpenAI API 키 설정'에서 설정할 수 있습니다.")
+                    st.stop()
+                    
+                # 사용자 메시지 추가
+                add_message("user", user_input)
+                st.chat_message("user").write(user_input)
+                
+                # 채팅 기록에서 시스템 메시지를 제외한 메시지 컨텍스트 생성
+                messages_for_api = [msg for msg in st.session_state.messages if msg["role"] != "assistant" or st.session_state.messages.index(msg) == 0]
+                
+                # API 키 설정
+                os.environ["OPENAI_API_KEY"] = st.session_state.api_key
+                
+                # AI 응답 생성
+                with st.spinner("응답 생성 중..."):
+                    ai_response = get_ai_response(messages_for_api)
+                
+                # AI 메시지 추가
+                add_message("assistant", ai_response)
+                st.chat_message("assistant").write(ai_response)
+                
+                # 채팅 자동 저장
+                save_current_chat()
             
-            # AI 메시지 추가
-            add_message("assistant", ai_response)
-            st.chat_message("assistant").write(ai_response)
+            # 새 감정 선택 버튼
+            if st.button("다른 감정 선택하기"):
+                # 현재 채팅 저장
+                save_current_chat()
+                
+                # 상태 초기화
+                st.session_state.selected_emotion = None
+                st.session_state.chat_started = False
+                st.rerun()
+    
+    elif st.session_state.active_page == "history":
+        st.markdown("<h2 class='sub-header'>채팅 기록</h2>", unsafe_allow_html=True)
         
-        # 새 감정 선택 버튼
-        if st.button("다른 감정 선택하기"):
-            st.session_state.selected_emotion = None
-            st.session_state.chat_started = False
-            st.rerun()
+        # 채팅 기록이 없는 경우
+        if 'user_data' not in st.session_state or 'chat_sessions' not in st.session_state.user_data or not st.session_state.user_data['chat_sessions']:
+            st.info("저장된 채팅 기록이 없습니다.")
+        else:
+            # 채팅 기록이 있는 경우
+            if st.session_state.selected_chat_id:
+                # 선택된 채팅 세션 표시
+                selected_chat = None
+                for chat in st.session_state.user_data['chat_sessions']:
+                    if chat['id'] == st.session_state.selected_chat_id:
+                        selected_chat = chat
+                        break
+                
+                if selected_chat:
+                    # 뒤로가기 버튼
+                    if st.button("← 기록 목록으로 돌아가기"):
+                        st.session_state.selected_chat_id = None
+                        st.rerun()
+                    
+                    # 채팅 세션 정보 표시
+                    chat_date = datetime.datetime.fromisoformat(selected_chat['date']).strftime("%Y년 %m월 %d일 %H:%M")
+                    emotion = selected_chat.get('emotion', '알 수 없음')
+                    emotion_icon = EMOTION_ICONS.get(emotion, "")
+                    
+                    st.markdown(f"**날짜:** {chat_date}")
+                    st.markdown(f"**감정:** {emotion_icon} {emotion}")
+                    st.markdown("---")
+                    
+                    # 채팅 내용 표시
+                    for msg in selected_chat['messages']:
+                        role = msg.get('role', '')
+                        content = msg.get('content', '')
+                        
+                        if role == 'user':
+                            st.chat_message("user").write(content)
+                        elif role == 'assistant':
+                            st.chat_message("assistant").write(content)
+                    
+                    # 채팅 계속하기 버튼
+                    if st.button("이 대화 계속하기"):
+                        st.session_state.active_page = "chat"
+                        st.session_state.selected_emotion = selected_chat.get('emotion', None)
+                        st.session_state.chat_started = True
+                        
+                        # 채팅 메시지 복원
+                        st.session_state.messages = []
+                        
+                        # 시스템 메시지 추가
+                        system_prompt = get_system_prompt(selected_chat.get('emotion', None))
+                        st.session_state.messages.append({"role": "system", "content": system_prompt})
+                        
+                        # 대화 메시지 추가
+                        for msg in selected_chat['messages']:
+                            st.session_state.messages.append(msg)
+                        
+                        st.rerun()
+                else:
+                    st.error("선택한 채팅을 찾을 수 없습니다.")
+                    st.session_state.selected_chat_id = None
+            else:
+                # 채팅 기록 목록 표시
+                chat_sessions = st.session_state.user_data['chat_sessions']
+                
+                # 최신 순으로 정렬
+                chat_sessions.sort(key=lambda x: x.get('date', ''), reverse=True)
+                
+                for chat in chat_sessions:
+                    # 채팅 카드 생성
+                    col1, col2 = st.columns([5, 1])
+                    
+                    with st.container():
+                        # 카드 스타일 컨테이너
+                        st.markdown(f"""
+                        <div class="chat-card">
+                            <div class="chat-card-header">
+                                <span class="chat-card-emotion">{EMOTION_ICONS.get(chat.get('emotion', ''), '')} {chat.get('emotion', '알 수 없음')}</span>
+                                <span class="chat-card-date">{datetime.datetime.fromisoformat(chat.get('date', '')).strftime("%Y년 %m월 %d일 %H:%M")}</span>
+                            </div>
+                            <div class="chat-card-preview">{chat.get('preview', '대화 내용 없음')[:100]}...</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                        # 카드 클릭 버튼 (보이지 않게 처리하고 카드 위에 오버레이)
+                        if st.button("보기", key=f"view_{chat['id']}"):
+                            st.session_state.selected_chat_id = chat['id']
+                            st.rerun()
 
 # 푸터
 st.markdown("---")

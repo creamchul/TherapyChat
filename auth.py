@@ -133,6 +133,34 @@ def load_user_data(username):
     """사용자 데이터를 로드합니다."""
     try:
         with open(f"user_data/{username}.pkl", "rb") as f:
-            return pickle.load(f)
+            data = pickle.load(f)
+            
+            # 이전 버전 데이터 구조 마이그레이션
+            if 'chat_sessions' not in data:
+                data['chat_sessions'] = []
+                
+                # 기존 채팅 기록이 있으면 새 형식으로 변환
+                if 'chat_history' in data and data['chat_history']:
+                    timestamp = datetime.datetime.now().isoformat()
+                    chat_id = f"chat_legacy_{timestamp}"
+                    
+                    emotion = None
+                    if 'emotions' in data and data['emotions']:
+                        emotion = data['emotions'][-1]
+                        
+                    chat_preview = data['chat_history'][0]['content'] if data['chat_history'] else "이전 대화"
+                    
+                    # 레거시 채팅 세션 생성
+                    chat_session = {
+                        "id": chat_id,
+                        "date": timestamp,
+                        "emotion": emotion,
+                        "preview": chat_preview,
+                        "messages": data['chat_history']
+                    }
+                    
+                    data['chat_sessions'].append(chat_session)
+            
+            return data
     except FileNotFoundError:
-        return {"chat_history": [], "emotions": []} 
+        return {"chat_history": [], "emotions": [], "chat_sessions": []} 

@@ -953,15 +953,8 @@ else:
                 is_selected = st.session_state.selected_emotion == emotion
                 selected_class = "selected" if is_selected else ""
                 
-                st.markdown(f"""
-                <div class='emotion-button {selected_class}' onclick="document.getElementById('button_emo_{emotion}').click()">
-                    <span class='emoji'>{emotion_icon}</span>
-                    <span>{emotion}</span>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                # 숨겨진 버튼 (클릭 이벤트 캡처용)
-                if st.button(f"{emotion}", key=f"emo_{emotion}", 
+                # 버튼 생성
+                if st.button(f"{emotion_icon} {emotion}", key=f"emo_{emotion}", 
                            help=f"{value}"):
                     handle_emotion_selection(emotion)
             

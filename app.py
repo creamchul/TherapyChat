@@ -26,6 +26,162 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# 감정 아이콘 매핑
+EMOTION_ICONS = {
+    "기쁨": "😊",
+    "슬픔": "😢",
+    "분노": "😠",
+    "불안": "😰",
+    "스트레스": "😫",
+    "외로움": "😔",
+    "후회": "😞",
+    "좌절": "😩",
+    "혼란": "😕",
+    "감사": "🙏"
+}
+
+# 감정 목표 업데이트 함수
+def update_emotion_goal(emotion):
+    """
+    감정에 따라 사용자의 감정 목표 진행도를 업데이트하는 함수
+    """
+    if not st.session_state.logged_in:
+        return
+    
+    username = st.session_state.username
+    user_data = st.session_state.user_data
+    
+    # 활성화된 감정 목표 확인
+    emotion_goals = user_data.get("emotion_goals", {"active_goal": None, "history": []})
+    active_goal = emotion_goals.get("active_goal", None)
+    
+    if not active_goal:
+        return
+    
+    # 목표 감정과 현재 감정 비교
+    target_emotion = active_goal.get("target_emotion")
+    if emotion == target_emotion:
+        # 목표 감정과 일치하는 경우 진행도 증가
+        progress = active_goal.get("progress", 0)
+        # 5% 증가, 최대 100%
+        progress = min(progress + 5, 100)
+        active_goal["progress"] = progress
+        
+        # 성과 기록
+        today = datetime.datetime.now().strftime("%Y-%m-%d")
+        active_goal.setdefault("achievements", []).append({
+            "date": today,
+            "description": f"목표 감정 '{target_emotion}'을(를) 경험했습니다."
+        })
+        
+        # 목표 달성 시 자동 완료
+        if progress >= 100:
+            active_goal["completed"] = True
+            active_goal["completion_date"] = today
+            emotion_goals["history"].append(active_goal)
+            emotion_goals["active_goal"] = None
+    
+    # 사용자 데이터 업데이트
+    user_data["emotion_goals"] = emotion_goals
+    st.session_state.user_data = user_data
+    
+    # 데이터 저장
+    all_user_data = load_user_data()
+    all_user_data[username] = user_data
+    save_user_data(all_user_data)
+
+# 감정 선택 저장 처리
+def handle_emotion_selection(emotion):
+    """
+    선택된 감정 처리 및 저장 함수
+    """
+    # 감정 설정
+    st.session_state.selected_emotion = emotion
+    
+    # 현재 채팅 세션에 감정 저장
+    if 'chat_id' not in st.session_state:
+        timestamp = datetime.datetime.now().isoformat()
+        st.session_state.chat_id = f"chat_{timestamp}"
+    
+    chat_id = st.session_state.chat_id
+    
+    # 채팅 세션 업데이트
+    if 'user_data' in st.session_state and 'chat_sessions' in st.session_state.user_data:
+        chat_sessions = st.session_state.user_data['chat_sessions']
+        found = False
+        for i, chat in enumerate(chat_sessions):
+            if chat['id'] == chat_id:
+                chat['emotion'] = emotion
+                found = True
+                break
+                
+        if not found:
+            # 새 채팅 세션 생성
+            chat_sessions.append({
+                "id": chat_id,
+                "date": datetime.datetime.now().isoformat(),
+                "emotion": emotion,
+                "preview": "새로운 대화",
+                "messages": []
+            })
+        
+        # 채팅 기록 업데이트
+        st.session_state.user_data['chat_sessions'] = chat_sessions
+        
+        # 사용자 데이터 저장
+        all_user_data = load_user_data()
+        all_user_data[st.session_state.username] = st.session_state.user_data
+        save_user_data(all_user_data)
+        
+        # 감정 목표 업데이트
+        update_emotion_goal(emotion)
+    
+    # 새 채팅 시작
+    st.session_state.chat_started = True
+    start_new_chat(emotion)
+    
+    # 화면 갱신
+    st.rerun()
+
+# DataFrames를 페이지네이션과 함께 표시하는 함수
+def display_dataframe_with_pagination(df, page_size=10, key="pagination"):
+    """
+    DataFrame을 페이지네이션과 함께 표시하는 함수
+    """
+    # 세션 상태 초기화
+    if f'{key}_page' not in st.session_state:
+        st.session_state[f'{key}_page'] = 0
+    
+    # 전체 페이지 수 계산
+    total_pages = max(len(df) // page_size, 1)
+    
+    # 현재 페이지 데이터 가져오기
+    start_idx = st.session_state[f'{key}_page'] * page_size
+    end_idx = min(start_idx + page_size, len(df))
+    page_df = df.iloc[start_idx:end_idx]
+    
+    # 하단 컨트롤
+    cols = st.columns([1, 3, 1])
+    
+    # 이전 페이지 버튼
+    with cols[0]:
+        if st.button("← 이전", key=f"{key}_prev", disabled=st.session_state[f'{key}_page'] == 0):
+            st.session_state[f'{key}_page'] = max(0, st.session_state[f'{key}_page'] - 1)
+            st.rerun()
+    
+    # 페이지 정보
+    with cols[1]:
+        st.markdown(f"**{st.session_state[f'{key}_page'] + 1}/{total_pages} 페이지** (총 {len(df)}개)")
+    
+    # 다음 페이지 버튼
+    with cols[2]:
+        if st.button("다음 →", key=f"{key}_next", disabled=st.session_state[f'{key}_page'] >= total_pages - 1):
+            st.session_state[f'{key}_page'] = min(total_pages - 1, st.session_state[f'{key}_page'] + 1)
+            st.rerun()
+    
+    # 현재 페이지 데이터 표시
+    st.dataframe(page_df, use_container_width=True)
+
 # CSS 스타일 적용
 st.markdown("""
 <style>
@@ -1579,439 +1735,3 @@ if (st.session_state.logged_in and
 # 푸터
 st.markdown("---")
 st.markdown("© 2025 감정 치유 AI 챗봇 | 개인 정보는 안전하게 보호됩니다.")
-
-# 테이블 표시 함수 추가
-def display_dataframe_with_pagination(df, key_prefix="table"):
-    """
-    데이터프레임을 페이지네이션과 정렬, 검색 기능이 있는 테이블로 표시합니다.
-    """
-    # 페이지 상태 초기화
-    if f"{key_prefix}_page" not in st.session_state:
-        st.session_state[f"{key_prefix}_page"] = 1
-    
-    if f"{key_prefix}_page_size" not in st.session_state:
-        st.session_state[f"{key_prefix}_page_size"] = 10
-    
-    if f"{key_prefix}_sort_by" not in st.session_state:
-        st.session_state[f"{key_prefix}_sort_by"] = None
-    
-    if f"{key_prefix}_sort_ascending" not in st.session_state:
-        st.session_state[f"{key_prefix}_sort_ascending"] = True
-    
-    if f"{key_prefix}_search" not in st.session_state:
-        st.session_state[f"{key_prefix}_search"] = ""
-    
-    # 컨트롤 영역
-    st.markdown('<div class="table-controls">', unsafe_allow_html=True)
-    
-    # 검색 및 페이지 크기 선택
-    col1, col2 = st.columns([3, 1])
-    
-    with col1:
-        search = st.text_input(
-            "검색", 
-            value=st.session_state[f"{key_prefix}_search"],
-            key=f"{key_prefix}_search_input"
-        )
-        st.session_state[f"{key_prefix}_search"] = search
-    
-    with col2:
-        page_size = st.selectbox(
-            "페이지 크기", 
-            [5, 10, 25, 50], 
-            index=[5, 10, 25, 50].index(st.session_state[f"{key_prefix}_page_size"]),
-            key=f"{key_prefix}_size_select"
-        )
-        st.session_state[f"{key_prefix}_page_size"] = page_size
-    
-    # 검색 필터링
-    if search:
-        filtered_df = df[df.apply(lambda row: any(str(search).lower() in str(cell).lower() for cell in row), axis=1)]
-    else:
-        filtered_df = df
-    
-    # 정렬
-    if st.session_state[f"{key_prefix}_sort_by"] is not None and st.session_state[f"{key_prefix}_sort_by"] in filtered_df.columns:
-        filtered_df = filtered_df.sort_values(
-            by=st.session_state[f"{key_prefix}_sort_by"],
-            ascending=st.session_state[f"{key_prefix}_sort_ascending"]
-        )
-    
-    # 총 페이지 수 계산
-    total_pages = max(1, (len(filtered_df) + page_size - 1) // page_size)
-    
-    # 현재 페이지가 유효한지 확인하고 조정
-    if st.session_state[f"{key_prefix}_page"] > total_pages:
-        st.session_state[f"{key_prefix}_page"] = total_pages
-    
-    # 현재 페이지 데이터 슬라이싱
-    start_idx = (st.session_state[f"{key_prefix}_page"] - 1) * page_size
-    end_idx = min(start_idx + page_size, len(filtered_df))
-    page_df = filtered_df.iloc[start_idx:end_idx].copy()
-    
-    # 데이터프레임 표시
-    st.markdown(f'<div class="dataframe-container">', unsafe_allow_html=True)
-    st.dataframe(page_df, use_container_width=True, hide_index=True)
-    st.markdown('</div>', unsafe_allow_html=True)
-    
-    # 페이지네이션 컨트롤
-    col1, col2, col3 = st.columns([1, 3, 1])
-    
-    with col1:
-        if st.button("◀ 이전", key=f"{key_prefix}_prev", disabled=st.session_state[f"{key_prefix}_page"] <= 1):
-            st.session_state[f"{key_prefix}_page"] -= 1
-            st.rerun()
-    
-    with col2:
-        # 페이지 번호 표시
-        page_text = f"<div style='text-align: center;'>{st.session_state[f'{key_prefix}_page']} / {total_pages} 페이지 (총 {len(filtered_df)}개 항목)</div>"
-        st.markdown(page_text, unsafe_allow_html=True)
-    
-    with col3:
-        if st.button("다음 ▶", key=f"{key_prefix}_next", disabled=st.session_state[f"{key_prefix}_page"] >= total_pages):
-            st.session_state[f"{key_prefix}_page"] += 1
-            st.rerun()
-    
-    # 컬럼 정렬 버튼
-    st.markdown("<div style='display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap;'>", unsafe_allow_html=True)
-    
-    for col in df.columns:
-        sort_key = f"{key_prefix}_sort_{col}"
-        is_sorted = st.session_state[f"{key_prefix}_sort_by"] == col
-        sort_direction = "↑" if is_sorted and st.session_state[f"{key_prefix}_sort_ascending"] else "↓"
-        
-        if st.button(
-            f"{col} {sort_direction if is_sorted else ''}",
-            key=sort_key,
-            type="secondary" if not is_sorted else "primary",
-            help=f"{col}으로 정렬하기"
-        ):
-            if st.session_state[f"{key_prefix}_sort_by"] == col:
-                st.session_state[f"{key_prefix}_sort_ascending"] = not st.session_state[f"{key_prefix}_sort_ascending"]
-            else:
-                st.session_state[f"{key_prefix}_sort_by"] = col
-                st.session_state[f"{key_prefix}_sort_ascending"] = True
-            st.rerun()
-    
-    st.markdown("</div>", unsafe_allow_html=True)
-    
-    return filtered_df
-
-# 프로필 관리 페이지
-if st.session_state.active_page == "profile":
-    st.markdown("<h2 class='sub-header'>프로필 관리</h2>", unsafe_allow_html=True)
-    
-    # 사용자 데이터 가져오기
-    username = st.session_state.username
-    user_data = st.session_state.user_data
-    
-    # 프로필 정보
-    profile = user_data.get("profile", {
-        "nickname": user_data.get("name", username),
-        "image": "",
-        "bio": "",
-        "theme": "light"
-    })
-    
-    # 탭 설정
-    tab1, tab2 = st.tabs(["기본 정보", "감정 목표"])
-    
-    with tab1:
-        st.subheader("프로필 설정")
-        
-        # 프로필 이미지
-        current_image = profile.get("image", "")
-        if current_image:
-            st.image(current_image, width=150)
-        
-        # 프로필 이미지 업로드
-        uploaded_file = st.file_uploader("프로필 이미지 업로드", type=["jpg", "jpeg", "png"])
-        if uploaded_file is not None:
-            # 이미지 처리 및 base64 인코딩
-            import base64
-            from PIL import Image
-            import io
-            
-            # 이미지 크기 조정
-            img = Image.open(uploaded_file)
-            img = img.resize((150, 150))
-            
-            # base64로 변환
-            buffered = io.BytesIO()
-            img.save(buffered, format="PNG")
-            img_str = base64.b64encode(buffered.getvalue()).decode()
-            profile["image"] = f"data:image/png;base64,{img_str}"
-            
-            # 업로드된 이미지 표시
-            st.image(img, width=150)
-        
-        # 닉네임 입력
-        nickname = st.text_input("닉네임", value=profile.get("nickname", ""))
-        
-        # 자기소개 입력
-        bio = st.text_area("자기소개", value=profile.get("bio", ""), height=150)
-        
-        # 테마 선택
-        theme = st.selectbox("테마", ["라이트 모드", "다크 모드"], 
-                            index=0 if profile.get("theme", "light") == "light" else 1)
-        
-        # 설정 저장
-        if st.button("프로필 저장", type="primary"):
-            # 프로필 업데이트
-            profile["nickname"] = nickname
-            profile["bio"] = bio
-            profile["theme"] = "light" if theme == "라이트 모드" else "dark"
-            
-            # 사용자 데이터 업데이트
-            user_data["profile"] = profile
-            st.session_state.user_data = user_data
-            
-            # 데이터 저장
-            from auth import save_user_data, load_user_data
-            all_user_data = load_user_data()
-            all_user_data[username] = user_data
-            save_user_data(all_user_data)
-            
-            st.success("프로필이 성공적으로 저장되었습니다!")
-            time.sleep(1)
-            st.rerun()
-    
-    with tab2:
-        st.subheader("감정 목표 설정")
-        
-        # 감정 목표 데이터
-        emotion_goals = user_data.get("emotion_goals", {"active_goal": None, "history": []})
-        active_goal = emotion_goals.get("active_goal", None)
-        
-        # 현재 목표 표시
-        if active_goal:
-            st.markdown(f"""
-            ### 현재 목표
-            **목표 감정:** {active_goal['target_emotion']}
-            **시작일:** {active_goal['start_date']}
-            **목표일:** {active_goal['end_date']}
-            **목표 설명:** {active_goal['description']}
-            **진행 상태:** {active_goal['progress']}%
-            """)
-            
-            # 목표 달성도
-            st.progress(active_goal['progress'] / 100)
-            
-            # 목표 완료 버튼
-            if st.button("목표 완료", type="primary", help="현재 목표를 완료하고 새 목표를 설정합니다."):
-                # 목표 완료 처리
-                active_goal['completed'] = True
-                active_goal['completion_date'] = datetime.datetime.now().strftime("%Y-%m-%d")
-                emotion_goals['history'].append(active_goal)
-                emotion_goals['active_goal'] = None
-                
-                # 사용자 데이터 업데이트
-                user_data["emotion_goals"] = emotion_goals
-                st.session_state.user_data = user_data
-                
-                # 데이터 저장
-                all_user_data = load_user_data()
-                all_user_data[username] = user_data
-                save_user_data(all_user_data)
-                
-                st.success("목표가 완료되었습니다!")
-                time.sleep(1)
-                st.rerun()
-        
-        # 구분선
-        st.markdown("---")
-        
-        # 새 목표 설정
-        st.subheader("새 감정 목표 설정")
-        
-        # 목표 감정 선택
-        target_emotion = st.selectbox(
-            "목표 감정", 
-            list(EMOTIONS.keys()),
-            index=0,
-            help="달성하고자 하는 감정을 선택하세요."
-        )
-        
-        # 목표 기간 설정
-        col1, col2 = st.columns(2)
-        with col1:
-            start_date = st.date_input(
-                "시작일", 
-                value=datetime.datetime.now().date(),
-                help="목표 시작일을 선택하세요"
-            )
-        with col2:
-            # 기본값으로 2주 후
-            default_end = datetime.datetime.now().date() + datetime.timedelta(days=14)
-            end_date = st.date_input(
-                "목표일", 
-                value=default_end,
-                help="목표 달성 예정일을 선택하세요"
-            )
-        
-        # 목표 설명
-        goal_description = st.text_area(
-            "목표 설명", 
-            value="", 
-            height=100,
-            help="감정 목표에 대한 설명이나 달성 방법을 적어주세요."
-        )
-        
-        # 목표 저장
-        if st.button("목표 설정", type="primary"):
-            if active_goal:
-                if st.warning("이미 활성화된 목표가 있습니다. 기존 목표를 완료하고 새 목표를 설정하시겠습니까?"):
-                    # 기존 목표 완료 처리
-                    active_goal['completed'] = True
-                    active_goal['completion_date'] = datetime.datetime.now().strftime("%Y-%m-%d")
-                    emotion_goals['history'].append(active_goal)
-            else:
-                # 새 목표 설정
-                new_goal = {
-                    "target_emotion": target_emotion,
-                    "start_date": start_date.strftime("%Y-%m-%d"),
-                    "end_date": end_date.strftime("%Y-%m-%d"),
-                    "description": goal_description,
-                    "progress": 0,
-                    "completed": False,
-                    "creation_date": datetime.datetime.now().strftime("%Y-%m-%d"),
-                    "achievements": []
-                }
-                
-                # 목표 저장
-                emotion_goals['active_goal'] = new_goal
-                
-                # 사용자 데이터 업데이트
-                user_data["emotion_goals"] = emotion_goals
-                st.session_state.user_data = user_data
-                
-                # 데이터 저장
-                all_user_data = load_user_data()
-                all_user_data[username] = user_data
-                save_user_data(all_user_data)
-                
-                st.success("새 감정 목표가 설정되었습니다!")
-                time.sleep(1)
-                st.rerun()
-        
-        # 목표 내역 표시
-        if emotion_goals.get("history"):
-            st.markdown("### 이전 목표 내역")
-            
-            for i, goal in enumerate(reversed(emotion_goals["history"])):
-                with st.expander(f"{goal['target_emotion']} ({goal['start_date']} ~ {goal.get('completion_date', '진행 중')})"):
-                    st.markdown(f"""
-                    **목표 감정:** {goal['target_emotion']}
-                    **시작일:** {goal['start_date']}
-                    **완료일:** {goal.get('completion_date', '미완료')}
-                    **목표 설명:** {goal['description']}
-                    **달성도:** {goal['progress']}%
-                    """)
-                    
-                    if goal.get('achievements'):
-                        st.markdown("**주요 성과:**")
-                        for achievement in goal['achievements']:
-                            st.markdown(f"- {achievement['date']}: {achievement['description']}")
-
-# 감정 목표 업데이트 함수
-def update_emotion_goal(emotion):
-    """
-    감정에 따라 사용자의 감정 목표 진행도를 업데이트하는 함수
-    """
-    if not st.session_state.logged_in:
-        return
-    
-    username = st.session_state.username
-    user_data = st.session_state.user_data
-    
-    # 활성화된 감정 목표 확인
-    emotion_goals = user_data.get("emotion_goals", {"active_goal": None, "history": []})
-    active_goal = emotion_goals.get("active_goal", None)
-    
-    if not active_goal:
-        return
-    
-    # 목표 감정과 현재 감정 비교
-    target_emotion = active_goal.get("target_emotion")
-    if emotion == target_emotion:
-        # 목표 감정과 일치하는 경우 진행도 증가
-        progress = active_goal.get("progress", 0)
-        # 5% 증가, 최대 100%
-        progress = min(progress + 5, 100)
-        active_goal["progress"] = progress
-        
-        # 성과 기록
-        today = datetime.datetime.now().strftime("%Y-%m-%d")
-        active_goal.setdefault("achievements", []).append({
-            "date": today,
-            "description": f"목표 감정 '{target_emotion}'을(를) 경험했습니다."
-        })
-        
-        # 목표 달성 시 자동 완료
-        if progress >= 100:
-            active_goal["completed"] = True
-            active_goal["completion_date"] = today
-            emotion_goals["history"].append(active_goal)
-            emotion_goals["active_goal"] = None
-    
-    # 사용자 데이터 업데이트
-    user_data["emotion_goals"] = emotion_goals
-    st.session_state.user_data = user_data
-    
-    # 데이터 저장
-    all_user_data = load_user_data()
-    all_user_data[username] = user_data
-    save_user_data(all_user_data)
-
-# 감정 선택 저장 처리
-def handle_emotion_selection(emotion):
-    """
-    선택된 감정 처리 및 저장 함수
-    """
-    # 감정 설정
-    st.session_state.selected_emotion = emotion
-    
-    # 현재 채팅 세션에 감정 저장
-    if 'chat_id' not in st.session_state:
-        timestamp = datetime.datetime.now().isoformat()
-        st.session_state.chat_id = f"chat_{timestamp}"
-    
-    chat_id = st.session_state.chat_id
-    
-    # 채팅 세션 업데이트
-    if 'user_data' in st.session_state and 'chat_sessions' in st.session_state.user_data:
-        chat_sessions = st.session_state.user_data['chat_sessions']
-        found = False
-        for i, chat in enumerate(chat_sessions):
-            if chat['id'] == chat_id:
-                chat['emotion'] = emotion
-                found = True
-                break
-                
-        if not found:
-            # 새 채팅 세션 생성
-            chat_sessions.append({
-                "id": chat_id,
-                "date": datetime.datetime.now().isoformat(),
-                "emotion": emotion,
-                "preview": "새로운 대화",
-                "messages": []
-            })
-        
-        # 채팅 기록 업데이트
-        st.session_state.user_data['chat_sessions'] = chat_sessions
-        
-        # 사용자 데이터 저장
-        all_user_data = load_user_data()
-        all_user_data[st.session_state.username] = st.session_state.user_data
-        save_user_data(all_user_data)
-        
-        # 감정 목표 업데이트
-        update_emotion_goal(emotion)
-    
-    # 새 채팅 시작
-    st.session_state.chat_started = True
-    start_new_chat(emotion)
-    
-    # 화면 갱신
-    st.rerun()

@@ -977,9 +977,9 @@ else:
                         # 그래프 그리기
                         ax.plot(filtered_df['date'], y_values, 'o-', markersize=8)
                         
-                        # 각 점에 감정 레이블 추가
+                        # 각 점에 감정 레이블 추가 - 한글과 이모지 제거
                         for i, txt in enumerate(filtered_df['emotion']):
-                            ax.annotate(f"{EMOTION_ICONS.get(txt, '')} {txt}", 
+                            ax.annotate(f"{txt}", 
                                      (filtered_df['date'].iloc[i], y_values[i]),
                                      textcoords="offset points", 
                                      xytext=(0, 10), 
@@ -988,14 +988,14 @@ else:
                         # x축 날짜 포맷 설정
                         plt.gcf().autofmt_xdate()
                         
-                        # y축 설정 - 감정 레이블
-                        plt.yticks(range(len(emotions_order)), [f"{EMOTION_ICONS.get(e, '')} {e}" for e in emotions_order])
+                        # y축 설정 - 감정 레이블 (이모지 제거)
+                        plt.yticks(range(len(emotions_order)), [f"{e}" for e in emotions_order])
                         
                         # 그리드 및 레이블 추가
                         plt.grid(True, linestyle='--', alpha=0.7)
-                        plt.title('감정 변화 추이', fontsize=16)
-                        plt.xlabel('날짜', fontsize=12)
-                        plt.ylabel('감정', fontsize=12)
+                        plt.title('Emotion Changes Over Time', fontsize=16)
+                        plt.xlabel('Date', fontsize=12)
+                        plt.ylabel('Emotion', fontsize=12)
                         
                         # 테마 스타일 설정
                         sns.set_style("whitegrid")
@@ -1005,7 +1005,7 @@ else:
                         
                         # 추가 분석 텍스트
                         most_common_emotion = filtered_df['emotion'].mode()[0]
-                        st.markdown(f"**분석 기간 동안 가장 많이 느낀 감정:** {EMOTION_ICONS.get(most_common_emotion, '')} {most_common_emotion}")
+                        st.markdown(f"**분석 기간 동안 가장 많이 느낀 감정:** {most_common_emotion}")
                 
                 with tab2:
                     st.subheader("주간/월간 감정 리포트")
@@ -1051,7 +1051,7 @@ else:
                                 # 그래프 그리기
                                 wedges, texts, autotexts = ax.pie(
                                     emotion_counts.values(), 
-                                    labels=[f"{EMOTION_ICONS.get(e, '')} {e}" for e in emotion_counts.keys()],
+                                    labels=[f"{e}" for e in emotion_counts.keys()],
                                     autopct='%1.1f%%',
                                     colors=colors,
                                     startangle=90
@@ -1065,7 +1065,7 @@ else:
                                 plt.setp(autotexts, size=10, weight="bold")
                                 
                                 # 제목 추가
-                                ax.set_title(f"{selected_week} 감정 분포", pad=20, fontsize=16)
+                                ax.set_title(f"{selected_week} Emotion Distribution", pad=20, fontsize=16)
                                 
                                 # 도넛 차트 표시
                                 st.pyplot(fig)
@@ -1073,12 +1073,12 @@ else:
                                 # 요약 통계
                                 st.markdown("### 주간 감정 요약")
                                 st.markdown(f"- **총 대화 수:** {sum(emotion_counts.values())}회")
-                                st.markdown(f"- **가장 많이 느낀 감정:** {EMOTION_ICONS.get(max(emotion_counts, key=emotion_counts.get), '')} {max(emotion_counts, key=emotion_counts.get)} ({emotion_counts[max(emotion_counts, key=emotion_counts.get)]}회)")
+                                st.markdown(f"- **가장 많이 느낀 감정:** {max(emotion_counts, key=emotion_counts.get)} ({emotion_counts[max(emotion_counts, key=emotion_counts.get)]}회)")
                                 
                                 # 감정 빈도 표시
                                 st.markdown("### 감정 빈도")
                                 for emotion, count in sorted(emotion_counts.items(), key=lambda x: x[1], reverse=True):
-                                    st.markdown(f"- {EMOTION_ICONS.get(emotion, '')} **{emotion}:** {count}회")
+                                    st.markdown(f"- **{emotion}:** {count}회")
                             else:
                                 st.warning("선택한 주에 데이터가 없습니다.")
                     else:  # 월간 리포트

@@ -3,9 +3,6 @@ import os
 import datetime
 import time
 import pandas as pd
-import matplotlib.pyplot as plt
-import matplotlib.font_manager as fm
-import seaborn as sns
 from dotenv import load_dotenv
 from auth import setup_auth, register_user, save_user_data, load_user_data, login, logout, hash_password, CONFIG_PATH
 from chatbot import EMOTIONS, initialize_chat_history, display_chat_history, add_message, get_ai_response, start_new_chat, analyze_emotion, get_system_prompt
@@ -17,10 +14,6 @@ import pytz
 
 # 환경 변수 로드
 load_dotenv()
-
-# 한글 폰트 설정
-plt.rcParams['font.family'] = 'Malgun Gothic'  # 윈도우 기본 한글 폰트
-plt.rcParams['axes.unicode_minus'] = False  # 마이너스 기호 깨짐 방지
 
 # 한국 시간대 설정
 KST = pytz.timezone('Asia/Seoul')

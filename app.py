@@ -838,113 +838,79 @@ else:
                         # 진행도 표시
                         st.markdown(f"**진행도:** {active_goal['progress']}%")
                         st.progress(active_goal['progress'] / 100)
+        
+        # 감정 선택 페이지 또는 채팅 페이지 표시
+        if not st.session_state.selected_emotion:
+            # 감정 선택 컨테이너
+            st.markdown("<div class='emotion-container'>", unsafe_allow_html=True)
+            st.markdown("### 현재 감정을 선택해주세요")
+            
+            # 감정 버튼 배치 (4열 그리드)
+            cols = st.columns(4)
+            
+            # 감정 목록 순회하며 버튼 배치
+            for index, (emotion, value) in enumerate(EMOTIONS.items()):
+                col = cols[index % 4]
+                with col:
+                    if st.button(f"{emotion}", key=f"emo_{emotion}", 
+                               help=f"{value}",
+                               use_container_width=True,
+                               type="primary" if st.session_state.selected_emotion == emotion else "secondary"):
+                        handle_emotion_selection(emotion)
+                        
+            st.markdown("</div>", unsafe_allow_html=True)
         else:
-            # 감정 선택 페이지 또는 채팅 페이지 표시
-            if not st.session_state.selected_emotion:
-                st.markdown("<h2 class='sub-header'>감정 선택</h2>", unsafe_allow_html=True)
-                st.write("현재 느끼는 감정을 선택해주세요:")
+            # 감정이 선택된 경우
+            initialize_chat_history()
+            display_chat_history()
+            
+            # 사용자 입력
+            user_input = st.chat_input("메시지를 입력하세요...")
+            if user_input:
+                # API 키 확인
+                if not st.session_state.api_key:
+                    st.warning("OpenAI API 키를 입력해주세요. 왼쪽 사이드바의 'OpenAI API 키 설정'에서 설정할 수 있습니다.")
+                    st.stop()
+                    
+                # 사용자 메시지 추가
+                add_message("user", user_input)
+                st.chat_message("user").write(user_input)
                 
-                # 감정 선택 컨테이너
-                st.markdown("<div class='emotion-container'>", unsafe_allow_html=True)
-                st.markdown("### 현재 감정을 선택해주세요")
+                # 채팅 기록에서 시스템 메시지를 제외한 메시지 컨텍스트 생성
+                messages_for_api = [msg for msg in st.session_state.messages if msg["role"] != "assistant" or st.session_state.messages.index(msg) == 0]
                 
-                # 감정 버튼 배치 (4열 그리드)
-                cols = st.columns(4)
+                # API 키 설정
+                os.environ["OPENAI_API_KEY"] = st.session_state.api_key
                 
-                # 감정 목록 순회하며 버튼 배치
-                for index, (emotion, value) in enumerate(EMOTIONS.items()):
-                    col = cols[index % 4]
-                    with col:
-                        if st.button(f"{emotion}", key=f"emo_{emotion}", 
-                                   help=f"{value}",
-                                   use_container_width=True,
-                                   type="primary" if st.session_state.selected_emotion == emotion else "secondary"):
-                            # 감정 설정
-                            st.session_state.selected_emotion = emotion
-                            
-                            # 현재 채팅 세션에 감정 저장
-                            if 'chat_id' in st.session_state and st.session_state.chat_id:
-                                chat_id = st.session_state.chat_id
-                                
-                                # 채팅 세션 업데이트
-                                chat_sessions = st.session_state.user_data['chat_sessions']
-                                for i, chat in enumerate(chat_sessions):
-                                    if chat['id'] == chat_id:
-                                        chat['emotion'] = emotion
-                                        break
-                                
-                                # 채팅 기록 업데이트
-                                st.session_state.user_data['chat_sessions'] = chat_sessions
-                                
-                                # 사용자 데이터 저장
-                                save_user_data(st.session_state.user_data)
-                                
-                                # 감정 목표 업데이트
-                                update_emotion_goal(emotion)
-                            
-                            # 화면 갱신
-                            st.rerun()
-                        
-                st.markdown("</div>", unsafe_allow_html=True)
-            else:
-                # 감정이 선택된 경우
-                st.markdown(f"<h2 class='sub-header'>선택한 감정: {EMOTION_ICONS.get(st.session_state.selected_emotion, '')} {st.session_state.selected_emotion}</h2>", unsafe_allow_html=True)
+                # AI 응답 생성
+                with st.spinner("응답 생성 중..."):
+                    ai_response = get_ai_response(messages_for_api)
                 
-                # 감정 설명
-                emotion_description = EMOTIONS.get(st.session_state.selected_emotion, "")
-                st.write(f"**{emotion_description}**")
+                # AI 메시지 추가
+                add_message("assistant", ai_response)
+                st.chat_message("assistant").write(ai_response)
                 
-                # 채팅 인터페이스
-                initialize_chat_history()
-                display_chat_history()
+                # 채팅 자동 저장
+                save_current_chat()
+            
+            # 새 감정 선택 버튼
+            if st.button("다른 감정 선택하기"):
+                # 현재 채팅 저장 (감정 상태가 변경되기 전에 저장)
+                save_current_chat()
                 
-                # 사용자 입력
-                user_input = st.chat_input("메시지를 입력하세요...")
-                if user_input:
-                    # API 키 확인
-                    if not st.session_state.api_key:
-                        st.warning("OpenAI API 키를 입력해주세요. 왼쪽 사이드바의 'OpenAI API 키 설정'에서 설정할 수 있습니다.")
-                        st.stop()
-                        
-                    # 사용자 메시지 추가
-                    add_message("user", user_input)
-                    st.chat_message("user").write(user_input)
-                    
-                    # 채팅 기록에서 시스템 메시지를 제외한 메시지 컨텍스트 생성
-                    messages_for_api = [msg for msg in st.session_state.messages if msg["role"] != "assistant" or st.session_state.messages.index(msg) == 0]
-                    
-                    # API 키 설정
-                    os.environ["OPENAI_API_KEY"] = st.session_state.api_key
-                    
-                    # AI 응답 생성
-                    with st.spinner("응답 생성 중..."):
-                        ai_response = get_ai_response(messages_for_api)
-                    
-                    # AI 메시지 추가
-                    add_message("assistant", ai_response)
-                    st.chat_message("assistant").write(ai_response)
-                    
-                    # 채팅 자동 저장
-                    save_current_chat()
+                # 현재 채팅 ID 제거
+                if 'current_chat_id' in st.session_state:
+                    del st.session_state.current_chat_id
                 
-                # 새 감정 선택 버튼
-                if st.button("다른 감정 선택하기"):
-                    # 현재 채팅 저장 (감정 상태가 변경되기 전에 저장)
-                    save_current_chat()
-                    
-                    # 현재 채팅 ID 제거
-                    if 'current_chat_id' in st.session_state:
-                        del st.session_state.current_chat_id
-                    
-                    # displayed_messages 초기화
-                    if 'displayed_messages' in st.session_state:
-                        del st.session_state.displayed_messages
-                    
-                    # 상태 초기화 (저장 후에 초기화)
-                    st.session_state.selected_emotion = None
-                    st.session_state.chat_started = False
-                    
-                    st.rerun()
+                # displayed_messages 초기화
+                if 'displayed_messages' in st.session_state:
+                    del st.session_state.displayed_messages
+                
+                # 상태 초기화 (저장 후에 초기화)
+                st.session_state.selected_emotion = None
+                st.session_state.chat_started = False
+                
+                st.rerun()
     
     elif st.session_state.active_page == "history":
         st.markdown("<h2 class='sub-header'>채팅 기록</h2>", unsafe_allow_html=True)
@@ -1604,7 +1570,10 @@ else:
 if (st.session_state.logged_in and 
     'messages' in st.session_state and 
     len(st.session_state.messages) > 1 and
-    st.session_state.get('selected_emotion')):
+    'selected_emotion' in st.session_state and
+    st.session_state.selected_emotion and
+    'auto_save' not in st.session_state):
+    st.session_state.auto_save = True
     auto_save()
 
 # 푸터
@@ -1613,6 +1582,9 @@ st.markdown("© 2025 감정 치유 AI 챗봇 | 개인 정보는 안전하게 보
 
 # 테이블 표시 함수 추가
 def display_dataframe_with_pagination(df, key_prefix="table"):
+    """
+    데이터프레임을 페이지네이션과 정렬, 검색 기능이 있는 테이블로 표시합니다.
+    """
     # 페이지 상태 초기화
     if f"{key_prefix}_page" not in st.session_state:
         st.session_state[f"{key_prefix}_page"] = 1
@@ -1723,7 +1695,7 @@ def display_dataframe_with_pagination(df, key_prefix="table"):
     
     st.markdown("</div>", unsafe_allow_html=True)
     
-    return filtered_df 
+    return filtered_df
 
 # 프로필 관리 페이지
 if st.session_state.active_page == "profile":
@@ -2000,23 +1972,46 @@ def handle_emotion_selection(emotion):
     st.session_state.selected_emotion = emotion
     
     # 현재 채팅 세션에 감정 저장
+    if 'chat_id' not in st.session_state:
+        timestamp = datetime.datetime.now().isoformat()
+        st.session_state.chat_id = f"chat_{timestamp}"
+    
     chat_id = st.session_state.chat_id
     
     # 채팅 세션 업데이트
-    chat_sessions = st.session_state.user_data['chat_sessions']
-    for i, chat in enumerate(chat_sessions):
-        if chat['id'] == chat_id:
-            chat['emotion'] = emotion
-            break
+    if 'user_data' in st.session_state and 'chat_sessions' in st.session_state.user_data:
+        chat_sessions = st.session_state.user_data['chat_sessions']
+        found = False
+        for i, chat in enumerate(chat_sessions):
+            if chat['id'] == chat_id:
+                chat['emotion'] = emotion
+                found = True
+                break
+                
+        if not found:
+            # 새 채팅 세션 생성
+            chat_sessions.append({
+                "id": chat_id,
+                "date": datetime.datetime.now().isoformat(),
+                "emotion": emotion,
+                "preview": "새로운 대화",
+                "messages": []
+            })
+        
+        # 채팅 기록 업데이트
+        st.session_state.user_data['chat_sessions'] = chat_sessions
+        
+        # 사용자 데이터 저장
+        all_user_data = load_user_data()
+        all_user_data[st.session_state.username] = st.session_state.user_data
+        save_user_data(all_user_data)
+        
+        # 감정 목표 업데이트
+        update_emotion_goal(emotion)
     
-    # 채팅 기록 업데이트
-    st.session_state.user_data['chat_sessions'] = chat_sessions
-    
-    # 사용자 데이터 저장
-    save_user_data(st.session_state.user_data)
-    
-    # 감정 목표 업데이트
-    update_emotion_goal(emotion)
+    # 새 채팅 시작
+    st.session_state.chat_started = True
+    start_new_chat(emotion)
     
     # 화면 갱신
     st.rerun()

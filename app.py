@@ -481,7 +481,8 @@ with st.sidebar:
 st.markdown("<h1 class='main-header'>감정 치유 AI 챗봇</h1>", unsafe_allow_html=True)
 
 if not st.session_state.logged_in:
-    st.info("로그인하면 AI 챗봇과 대화할 수 있습니다. 왼쪽 사이드바에서 로그인해주세요.")
+    # 로그인하지 않았을 때는 간단한 안내 메시지만 표시
+    st.info("왼쪽 사이드바에서 로그인해주세요.")
 else:
     # 선택된 페이지에 따라 다른 내용 표시
     if st.session_state.active_page == "chat":
@@ -852,30 +853,4 @@ if (st.session_state.logged_in and
 
 # 푸터
 st.markdown("---")
-st.markdown("© 2025 감정 치유 AI 챗봇 | 개인 정보는 안전하게 보호됩니다.")
-
-# 네비게이션 메뉴
-st.markdown("### 메뉴")
-if st.button("💬 채팅", key="nav_chat", use_container_width=True):
-    st.session_state.active_page = "chat"
-    st.session_state.selected_chat_id = None
-    st.rerun()
-    
-if st.button("📋 채팅 기록", key="nav_history", use_container_width=True):
-    # 현재 채팅 저장 (감정 값이 있는 경우에만)
-    if st.session_state.selected_emotion:
-        auto_save()
-    st.session_state.active_page = "history"
-    st.rerun()
-    
-st.markdown("---")
-if st.button("로그아웃", key="logout_button"):
-    # 사용자 데이터 저장
-    if 'messages' in st.session_state:
-        if 'user_data' not in st.session_state:
-            st.session_state.user_data = {"chat_history": [], "chat_sessions": []}
-        
-        # 활성화된 채팅이 있으면 저장 (selected_emotion이 있을 때만)
-        if 'messages' in st.session_state and len(st.session_state.messages) > 1 and st.session_state.selected_emotion:
-            save_current_chat()
 st.markdown("© 2025 감정 치유 AI 챗봇 | 개인 정보는 안전하게 보호됩니다.") 

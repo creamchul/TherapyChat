@@ -77,23 +77,24 @@ def logout():
 
 # 새 사용자 등록 기능
 def register_user(credentials):
-    st.subheader("새 계정 만들기")
+    st.title("회원가입")
     
-    # 폼 입력 필드 생성
-    with st.form("회원가입_폼", clear_on_submit=True):
-        username = st.text_input("사용자 이름", key="reg_username")
-        name = st.text_input("이름", key="reg_name")
-        email = st.text_input("이메일", key="reg_email")
-        password = st.text_input("비밀번호", type="password", key="reg_password")
-        password_confirm = st.text_input("비밀번호 확인", type="password", key="reg_password_confirm")
+    with st.form("register_form"):
+        username = st.text_input("사용자 이름 *", help="로그인에 사용될 ID입니다")
+        name = st.text_input("이름 *", help="서비스 내에서 표시될 이름입니다")
+        email = st.text_input("이메일", help="선택 사항입니다")
+        password = st.text_input("비밀번호 *", type="password")
+        password_confirm = st.text_input("비밀번호 확인 *", type="password")
         
-        # 가입 버튼
-        submit = st.form_submit_button("가입하기", use_container_width=True)
+        # 버튼을 중앙에 배치하고 primary 유형으로 변경
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            submit_button = st.form_submit_button("회원가입", type="primary", use_container_width=True)
         
-        if submit:
+        if submit_button:
             # 입력 검증
-            if not username or not name or not email or not password:
-                st.error("모든 필드를 입력해주세요.")
+            if not username or not name or not password:
+                st.error("필수 항목을 모두 입력해주세요.")
                 return
                 
             if password != password_confirm:
@@ -103,17 +104,14 @@ def register_user(credentials):
             # 설정 파일 로드
             config_file = Path(CONFIG_PATH)
             try:
-                with open(config_file) as file:
-                    config = yaml.load(file, Loader=SafeLoader)
-                    
                 # 사용자 이름 중복 확인
-                if username in config['credentials']['usernames']:
+                if username in credentials['usernames']:
                     st.error("이미 존재하는 사용자 이름입니다.")
                     return
                     
                 # 새 사용자 추가
                 hashed_password = hash_password(password)
-                config['credentials']['usernames'][username] = {
+                credentials['usernames'][username] = {
                     'name': name,
                     'password': hashed_password,
                     'email': email
@@ -121,6 +119,12 @@ def register_user(credentials):
                 
                 # 설정 파일 저장
                 with open(config_file, 'w') as file:
+                    config = {
+                        'credentials': credentials,
+                        'cookie': {
+                            'expiry_days': 30
+                        }
+                    }
                     yaml.dump(config, file, default_flow_style=False)
                     
                 # 사용자 데이터 파일 초기화

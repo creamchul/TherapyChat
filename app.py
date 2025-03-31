@@ -4,7 +4,7 @@ import datetime
 import time
 from dotenv import load_dotenv
 from auth import setup_auth, register_user, save_user_data, load_user_data, login, logout
-from chatbot import EMOTIONS, initialize_chat_history, display_chat_history, add_message, get_ai_response, start_new_chat, analyze_emotion
+from chatbot import EMOTIONS, initialize_chat_history, display_chat_history, add_message, get_ai_response, start_new_chat, analyze_emotion, get_system_prompt
 
 # 환경 변수 로드
 load_dotenv()
@@ -97,7 +97,7 @@ st.markdown("""
         opacity: 1;
     }
     /* Streamlit 버튼 스타일링 - 보이지 않지만 클릭 가능하게 */
-    div.stButton {
+    div.chat-history-card div.stButton {
         position: absolute;
         top: 0;
         left: 0;
@@ -105,7 +105,7 @@ st.markdown("""
         height: 100%;
         z-index: 2;
     }
-    div.stButton > button {
+    div.chat-history-card div.stButton > button {
         position: absolute;
         top: 0;
         left: 0;
@@ -198,6 +198,43 @@ st.markdown("""
     /* 날짜 선택 입력 필드 스타일 개선 */
     .stDateInput > div > div > input {
         border-radius: 8px;
+    }
+    /* 로그인 및 회원가입 버튼 스타일 */
+    div.auth-container button {
+        display: block !important;
+        opacity: 1 !important;
+        position: relative !important;
+        background-color: #6a89cc !important;
+        color: white !important;
+        border-radius: 5px !important;
+        border: none !important;
+        padding: 0.5rem 1rem !important;
+        margin: 0.5rem 0 !important;
+        width: auto !important;
+        height: auto !important;
+        font-weight: 500 !important;
+        text-align: center !important;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1) !important;
+    }
+    div.auth-container button:hover {
+        background-color: #5679c1 !important;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15) !important;
+    }
+    /* 특정 스타일 적용을 위한 클래스 */
+    .login-button {
+        display: block !important;
+        width: 100% !important;
+        background-color: #6a89cc !important;
+        color: white !important;
+        border-radius: 4px !important;
+        border: none !important;
+        padding: 0.5rem !important;
+        margin-top: 1rem !important;
+        font-weight: 500 !important;
+        cursor: pointer !important;
+    }
+    .login-button:hover {
+        background-color: #5679c1 !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -355,7 +392,11 @@ with st.sidebar:
                 with login_form.container():
                     username = st.text_input("사용자 이름", key="login_username")
                     password = st.text_input("비밀번호", type="password", key="login_password")
-                    login_button = st.button("로그인")
+                    
+                    # 로그인 버튼 (일반적인 방식)
+                    col1, col2, col3 = st.columns([1, 2, 1])
+                    with col2:
+                        login_button = st.button("로그인", type="primary", use_container_width=True)
                     
                     if login_button:
                         success, name = login(credentials, username, password)
@@ -382,18 +423,22 @@ with st.sidebar:
 
             # 회원가입으로 이동 버튼
             st.markdown("---")
-            if st.button("계정이 없으신가요? 회원가입 하기"):
-                st.session_state.active_tab = "회원가입"
-                st.rerun()
+            col1, col2, col3 = st.columns([1, 2, 1])
+            with col2:
+                if st.button("계정이 없으신가요? 회원가입", type="primary", use_container_width=True):
+                    st.session_state.active_tab = "회원가입"
+                    st.rerun()
         
         elif selected_tab == "회원가입":
             register_user(credentials)
             
             # 로그인으로 이동 버튼
             st.markdown("---")
-            if st.button("이미 계정이 있으신가요? 로그인 하기"):
-                st.session_state.active_tab = "로그인"
-                st.rerun()
+            col1, col2, col3 = st.columns([1, 2, 1])
+            with col2:
+                if st.button("이미 계정이 있으신가요? 로그인", type="primary", use_container_width=True):
+                    st.session_state.active_tab = "로그인"
+                    st.rerun()
     else:
         st.subheader(f"사용자: {st.session_state.username}")
         
@@ -772,6 +817,9 @@ else:
                     card_container = st.container()
                     
                     with card_container:
+                        # 로그인 버튼과 충돌하지 않도록 div에 특정 클래스 추가
+                        st.markdown('<div class="chat-history-card">', unsafe_allow_html=True)
+                        
                         # 카드 스타일 컨테이너
                         st.markdown(f"""
                         <div class="chat-card">
@@ -789,6 +837,8 @@ else:
                             key=f"chat_card_{chat['id']}"
                         )
                         
+                        st.markdown('</div>', unsafe_allow_html=True)
+                        
                         if card_clicked:
                             st.session_state.selected_chat_id = chat['id']
                             st.rerun()
@@ -802,4 +852,30 @@ if (st.session_state.logged_in and
 
 # 푸터
 st.markdown("---")
+st.markdown("© 2025 감정 치유 AI 챗봇 | 개인 정보는 안전하게 보호됩니다.")
+
+# 네비게이션 메뉴
+st.markdown("### 메뉴")
+if st.button("💬 채팅", key="nav_chat", use_container_width=True):
+    st.session_state.active_page = "chat"
+    st.session_state.selected_chat_id = None
+    st.rerun()
+    
+if st.button("📋 채팅 기록", key="nav_history", use_container_width=True):
+    # 현재 채팅 저장 (감정 값이 있는 경우에만)
+    if st.session_state.selected_emotion:
+        auto_save()
+    st.session_state.active_page = "history"
+    st.rerun()
+    
+st.markdown("---")
+if st.button("로그아웃", key="logout_button"):
+    # 사용자 데이터 저장
+    if 'messages' in st.session_state:
+        if 'user_data' not in st.session_state:
+            st.session_state.user_data = {"chat_history": [], "chat_sessions": []}
+        
+        # 활성화된 채팅이 있으면 저장 (selected_emotion이 있을 때만)
+        if 'messages' in st.session_state and len(st.session_state.messages) > 1 and st.session_state.selected_emotion:
+            save_current_chat()
 st.markdown("© 2025 감정 치유 AI 챗봇 | 개인 정보는 안전하게 보호됩니다.") 

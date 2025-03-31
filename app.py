@@ -4,6 +4,7 @@ import datetime
 import time
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib.font_manager as fm
 import seaborn as sns
 from dotenv import load_dotenv
 from auth import setup_auth, register_user, save_user_data, load_user_data, login, logout, hash_password, CONFIG_PATH
@@ -12,9 +13,17 @@ from pathlib import Path
 import yaml
 import numpy as np
 from collections import Counter
+import pytz
 
 # 환경 변수 로드
 load_dotenv()
+
+# 한글 폰트 설정
+plt.rcParams['font.family'] = 'Malgun Gothic'  # 윈도우 기본 한글 폰트
+plt.rcParams['axes.unicode_minus'] = False  # 마이너스 기호 깨짐 방지
+
+# 한국 시간대 설정
+KST = pytz.timezone('Asia/Seoul')
 
 # 페이지 설정
 st.set_page_config(
@@ -923,6 +932,8 @@ else:
             for chat in chat_sessions:
                 if 'date' in chat and 'emotion' in chat and chat['emotion']:
                     date = datetime.datetime.fromisoformat(chat['date'])
+                    # UTC를 KST로 변환 (9시간 추가)
+                    date = date.replace(tzinfo=pytz.UTC).astimezone(KST)
                     emotion_data.append({
                         'date': date,
                         'emotion': chat['emotion'],
@@ -964,8 +975,8 @@ else:
                     if filtered_df.empty:
                         st.warning("선택한 날짜 범위에 데이터가 없습니다.")
                     else:
-                        # 그래프 생성
-                        fig, ax = plt.subplots(figsize=(10, 6))
+                        # 그래프 생성 - 크기 축소
+                        fig, ax = plt.subplots(figsize=(8, 4))
                         
                         # 감정 카테고리 순서 정의
                         emotions_order = list(EMOTIONS.keys())
@@ -975,30 +986,32 @@ else:
                         y_values = [emotion_values.get(e, 0) for e in filtered_df['emotion']]
                         
                         # 그래프 그리기
-                        ax.plot(filtered_df['date'], y_values, 'o-', markersize=8)
+                        ax.plot(filtered_df['date'], y_values, 'o-', markersize=6)
                         
-                        # 각 점에 감정 레이블 추가 - 한글과 이모지 제거
+                        # 각 점에 감정 레이블 추가
                         for i, txt in enumerate(filtered_df['emotion']):
                             ax.annotate(f"{txt}", 
                                      (filtered_df['date'].iloc[i], y_values[i]),
                                      textcoords="offset points", 
-                                     xytext=(0, 10), 
-                                     ha='center')
+                                     xytext=(0, 8), 
+                                     ha='center',
+                                     fontsize=8)
                         
                         # x축 날짜 포맷 설정
                         plt.gcf().autofmt_xdate()
                         
-                        # y축 설정 - 감정 레이블 (이모지 제거)
-                        plt.yticks(range(len(emotions_order)), [f"{e}" for e in emotions_order])
+                        # y축 설정 - 감정 레이블
+                        plt.yticks(range(len(emotions_order)), [f"{e}" for e in emotions_order], fontsize=8)
                         
                         # 그리드 및 레이블 추가
                         plt.grid(True, linestyle='--', alpha=0.7)
-                        plt.title('Emotion Changes Over Time', fontsize=16)
-                        plt.xlabel('Date', fontsize=12)
-                        plt.ylabel('Emotion', fontsize=12)
+                        plt.title('감정 변화 추이', fontsize=12)
+                        plt.xlabel('날짜', fontsize=10)
+                        plt.ylabel('감정', fontsize=10)
                         
                         # 테마 스타일 설정
                         sns.set_style("whitegrid")
+                        plt.tight_layout()
                         
                         # 그래프 표시
                         st.pyplot(fig)
@@ -1042,8 +1055,8 @@ else:
                                 emotions = selected_data.iloc[0]['emotion']
                                 emotion_counts = Counter(emotions)
                                 
-                                # 원형 그래프로 시각화
-                                fig, ax = plt.subplots(figsize=(8, 8))
+                                # 원형 그래프로 시각화 - 크기 축소
+                                fig, ax = plt.subplots(figsize=(6, 6))
                                 
                                 # 색상 설정
                                 colors = plt.cm.tab10(np.arange(len(emotion_counts)))
@@ -1054,7 +1067,8 @@ else:
                                     labels=[f"{e}" for e in emotion_counts.keys()],
                                     autopct='%1.1f%%',
                                     colors=colors,
-                                    startangle=90
+                                    startangle=90,
+                                    textprops={'fontsize': 9}
                                 )
                                 
                                 # 원형 그래프 가운데 원 추가해서 도넛 차트로 변경
@@ -1062,10 +1076,11 @@ else:
                                 fig.gca().add_artist(centre_circle)
                                 
                                 # 폰트 크기 조정
-                                plt.setp(autotexts, size=10, weight="bold")
+                                plt.setp(autotexts, size=9, weight="bold")
                                 
                                 # 제목 추가
-                                ax.set_title(f"{selected_week} Emotion Distribution", pad=20, fontsize=16)
+                                ax.set_title(f"{selected_week} 감정 분포", pad=15, fontsize=12)
+                                plt.tight_layout()
                                 
                                 # 도넛 차트 표시
                                 st.pyplot(fig)
@@ -1105,8 +1120,8 @@ else:
                                 emotions = selected_data.iloc[0]['emotion']
                                 emotion_counts = Counter(emotions)
                                 
-                                # 세로 막대 그래프로 시각화
-                                fig, ax = plt.subplots(figsize=(10, 6))
+                                # 세로 막대 그래프로 시각화 - 크기 축소
+                                fig, ax = plt.subplots(figsize=(7, 4))
                                 
                                 # 감정 순서대로 정렬
                                 ordered_emotions = [e for e in EMOTIONS.keys() if e in emotion_counts]
@@ -1121,18 +1136,18 @@ else:
                                 
                                 # 축 설정
                                 ax.set_xticks(range(len(ordered_emotions)))
-                                ax.set_xticklabels([f"{EMOTION_ICONS.get(e, '')} {e}" for e in ordered_emotions], rotation=45, ha='right')
+                                ax.set_xticklabels([f"{e}" for e in ordered_emotions], rotation=45, ha='right', fontsize=8)
                                 
                                 # 막대 위에 숫자 표시
                                 for bar in bars:
                                     height = bar.get_height()
                                     ax.text(bar.get_x() + bar.get_width()/2., height + 0.1,
                                             f'{int(height)}',
-                                            ha='center', va='bottom')
+                                            ha='center', va='bottom', fontsize=8)
                                 
                                 # 제목과 레이블 설정
-                                ax.set_title(f"{selected_month} 감정 발생 빈도", pad=20, fontsize=16)
-                                ax.set_ylabel('빈도', fontsize=12)
+                                ax.set_title(f"{selected_month} 감정 발생 빈도", pad=10, fontsize=12)
+                                ax.set_ylabel('빈도', fontsize=10)
                                 
                                 # 여백 조정
                                 plt.tight_layout()
@@ -1143,7 +1158,12 @@ else:
                                 # 요약 통계
                                 st.markdown("### 월간 감정 요약")
                                 st.markdown(f"- **총 대화 수:** {sum(emotion_counts.values())}회")
-                                st.markdown(f"- **가장 많이 느낀 감정:** {EMOTION_ICONS.get(max(emotion_counts, key=emotion_counts.get), '')} {max(emotion_counts, key=emotion_counts.get)} ({emotion_counts[max(emotion_counts, key=emotion_counts.get)]}회)")
+                                st.markdown(f"- **가장 많이 느낀 감정:** {max(emotion_counts, key=emotion_counts.get)} ({emotion_counts[max(emotion_counts, key=emotion_counts.get)]}회)")
+                                
+                                # 감정 빈도 표시
+                                st.markdown("### 감정 빈도")
+                                for emotion, count in sorted(emotion_counts.items(), key=lambda x: x[1], reverse=True):
+                                    st.markdown(f"- **{emotion}:** {count}회")
                                 
                                 # 추가 분석
                                 if len(emotion_counts) > 1:
@@ -1158,11 +1178,12 @@ else:
                     # 전체 감정 분포 파이 차트
                     emotion_overall = df['emotion'].value_counts()
                     
-                    col1, col2 = st.columns([2, 1])
+                    # 레이아웃 조정 - 파이 차트와 설명을 더 작게 표시
+                    col1, col2 = st.columns([1, 1])
                     
                     with col1:
-                        # 파이 차트 생성
-                        fig, ax = plt.subplots(figsize=(8, 8))
+                        # 파이 차트 생성 - 크기 축소
+                        fig, ax = plt.subplots(figsize=(5, 5))
                         
                         # 색상 설정
                         colors = plt.cm.tab10(np.arange(len(emotion_overall)))
@@ -1170,17 +1191,19 @@ else:
                         # 차트 그리기
                         wedges, texts, autotexts = ax.pie(
                             emotion_overall.values, 
-                            labels=[f"{EMOTION_ICONS.get(e, '')} {e}" for e in emotion_overall.index],
+                            labels=[f"{e}" for e in emotion_overall.index],
                             autopct='%1.1f%%',
                             colors=colors,
-                            startangle=90
+                            startangle=90,
+                            textprops={'fontsize': 8}
                         )
                         
                         # 제목 추가
-                        ax.set_title("전체 감정 분포", fontsize=16)
+                        ax.set_title("전체 감정 분포", fontsize=12)
                         
                         # 폰트 크기 조정
-                        plt.setp(autotexts, size=10, weight="bold")
+                        plt.setp(autotexts, size=8, weight="bold")
+                        plt.tight_layout()
                         
                         # 그래프 표시
                         st.pyplot(fig)
@@ -1191,7 +1214,7 @@ else:
                         # 가장 많은 순서대로 정렬
                         for emotion, count in emotion_overall.items():
                             percentage = (count / emotion_overall.sum()) * 100
-                            st.markdown(f"- {EMOTION_ICONS.get(emotion, '')} **{emotion}:** {count}회 ({percentage:.1f}%)")
+                            st.markdown(f"- **{emotion}:** {count}회 ({percentage:.1f}%)")
                     
                     # 시간대별 감정 분석
                     st.markdown("### 시간대별 감정 패턴")
@@ -1208,21 +1231,23 @@ else:
                     # 시간대별 감정 분포
                     time_emotion = pd.crosstab(df['time_category'], df['emotion'])
                     
-                    # 히트맵 생성
-                    fig, ax = plt.subplots(figsize=(10, 6))
+                    # 히트맵 생성 - 크기 축소
+                    fig, ax = plt.subplots(figsize=(8, 4))
                     sns.heatmap(
                         time_emotion, 
                         annot=True, 
                         fmt='d', 
                         cmap='Blues',
                         linewidths=.5,
-                        ax=ax
+                        ax=ax,
+                        annot_kws={"size": 8}
                     )
                     
                     # 제목 및 레이블 설정
-                    ax.set_title('시간대별 감정 발생 빈도', fontsize=16, pad=20)
-                    ax.set_xlabel('감정', fontsize=12)
-                    ax.set_ylabel('시간대', fontsize=12)
+                    ax.set_title('시간대별 감정 발생 빈도', fontsize=12, pad=10)
+                    ax.set_xlabel('감정', fontsize=10)
+                    ax.set_ylabel('시간대', fontsize=10)
+                    plt.tight_layout()
                     
                     # 그래프 표시
                     st.pyplot(fig)
@@ -1238,23 +1263,33 @@ else:
                             if not time_emotion.loc[time_cat].sum() == 0:
                                 time_most_emotions[time_cat] = time_emotion.loc[time_cat].idxmax()
                         
-                        # 분석 결과 텍스트 표시
+                        # 분석 결과 텍스트 표시 - 더 간결하게
                         st.markdown("### 감정 패턴 인사이트")
-                        st.markdown(f"- 가장 많은 대화가 이루어진 시간대는 **{most_common_time}**입니다.")
-                        st.markdown(f"- 전체적으로 가장 자주 느끼는 감정은 {EMOTION_ICONS.get(most_common_emotion_overall, '')} **{most_common_emotion_overall}**입니다.")
                         
+                        # 통계 요약을 컴팩트하게 표시
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            st.markdown(f"**주요 대화 시간대:** {most_common_time}")
+                            st.markdown(f"**주요 감정:** {most_common_emotion_overall}")
+                        
+                        with col2:
+                            if len(df) > 3:
+                                recent_emotions = df.sort_values('date').tail(3)['emotion'].tolist()
+                                if len(set(recent_emotions)) == 1:
+                                    st.markdown(f"**최근 감정:** {recent_emotions[0]}")
+                                else:
+                                    st.markdown(f"**최근 감정 변화:** {', '.join(recent_emotions)}")
+                        
+                        # 시간대별 주요 감정을 표 형태로 표시
                         st.markdown("#### 시간대별 주요 감정")
+                        time_emotion_data = {"시간대": [], "주요 감정": []}
                         for time_cat, emotion in time_most_emotions.items():
-                            st.markdown(f"- **{time_cat}**에는 주로 {EMOTION_ICONS.get(emotion, '')} **{emotion}** 감정을 느낍니다.")
-                            
-                        # 감정 변화 추이 분석
-                        if len(df) > 3:
-                            recent_emotions = df.sort_values('date').tail(3)['emotion'].tolist()
-                            if len(set(recent_emotions)) == 1:
-                                st.markdown(f"- 최근에는 계속 {EMOTION_ICONS.get(recent_emotions[0], '')} **{recent_emotions[0]}** 감정을 느끼고 있습니다.")
-                            else:
-                                emotions_str = ', '.join([f"{EMOTION_ICONS.get(e, '')} **{e}**" for e in recent_emotions])
-                                st.markdown(f"- 최근 감정 변화: {emotions_str}")
+                            time_emotion_data["시간대"].append(time_cat)
+                            time_emotion_data["주요 감정"].append(emotion)
+                        
+                        time_emotion_df = pd.DataFrame(time_emotion_data)
+                        st.dataframe(time_emotion_df, hide_index=True, use_container_width=True)
+                        
                     except:
                         st.markdown("데이터가 충분하지 않아 상세 분석을 생성할 수 없습니다.")
                     
@@ -1295,6 +1330,7 @@ else:
                     if not emotion_overall.empty:
                         dominant_emotions = emotion_overall.nlargest(2).index.tolist()
                         
+                        # 추천 활동을 한 행에 복수 열로 표시
                         st.markdown("##### 추천 활동")
                         activities = {
                             "기쁨": ["긍정적인 경험 일기 쓰기", "다른 사람과 기쁨 나누기", "감사 명상"],
@@ -1309,13 +1345,17 @@ else:
                             "감사": ["감사 일기 쓰기", "타인에게 감사 표현하기", "봉사활동"]
                         }
                         
+                        # 추천 활동을 표로 표시
+                        activity_data = {"감정": [], "추천 활동": []}
                         for emotion in dominant_emotions:
                             if emotion in activities:
-                                st.markdown(f"**{EMOTION_ICONS.get(emotion, '')} {emotion}** 감정을 위한 추천 활동:")
-                                for act in activities[emotion]:
-                                    st.markdown(f"- {act}")
+                                activity_data["감정"].append(emotion)
+                                activity_data["추천 활동"].append(", ".join(activities[emotion]))
+                        
+                        activity_df = pd.DataFrame(activity_data)
+                        st.dataframe(activity_df, hide_index=True, use_container_width=True)
                             
-                        # 시간대별 추천
+                        # 시간대별 추천을 표로 변경
                         st.markdown("##### 시간대별 추천")
                         time_recommendations = {
                             "새벽 (0-6시)": "충분한 수면을 취하고, 명상이나 가벼운 스트레칭으로 하루를 시작해보세요.",
@@ -1327,8 +1367,14 @@ else:
                         # 사용자가 가장 많이 대화한 시간대 확인
                         if not df.empty:
                             user_peak_time = df['time_category'].mode()[0]
-                            st.markdown(f"**{user_peak_time}**에 대한 추천:")
-                            st.markdown(time_recommendations.get(user_peak_time, "규칙적인 생활 패턴을 유지하세요."))
+                            
+                            # 시간대별 추천을 표로 표시
+                            rec_data = {"시간대": [], "추천 활동": []}
+                            rec_data["시간대"].append(user_peak_time)
+                            rec_data["추천 활동"].append(time_recommendations.get(user_peak_time, "규칙적인 생활 패턴을 유지하세요."))
+                            
+                            rec_df = pd.DataFrame(rec_data)
+                            st.dataframe(rec_df, hide_index=True, use_container_width=True)
 
 # 주기적 자동 저장
 if (st.session_state.logged_in and 

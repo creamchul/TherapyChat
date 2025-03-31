@@ -975,50 +975,33 @@ else:
                     if filtered_df.empty:
                         st.warning("선택한 날짜 범위에 데이터가 없습니다.")
                     else:
-                        # 그래프 생성 - 크기 축소
-                        fig, ax = plt.subplots(figsize=(8, 4))
+                        # 그래프 대신 테이블 표시
+                        st.markdown("#### 감정 변화 추이 (시간순)")
                         
-                        # 감정 카테고리 순서 정의
-                        emotions_order = list(EMOTIONS.keys())
-                        emotion_values = {e: i for i, e in enumerate(emotions_order)}
+                        # 표시할 데이터 준비
+                        display_df = filtered_df[['date', 'emotion']].copy()
+                        display_df['date'] = display_df['date'].dt.strftime('%Y-%m-%d %H:%M')
+                        display_df.columns = ['날짜', '감정']
                         
-                        # y축 값 변환
-                        y_values = [emotion_values.get(e, 0) for e in filtered_df['emotion']]
-                        
-                        # 그래프 그리기
-                        ax.plot(filtered_df['date'], y_values, 'o-', markersize=6)
-                        
-                        # 각 점에 감정 레이블 추가
-                        for i, txt in enumerate(filtered_df['emotion']):
-                            ax.annotate(f"{txt}", 
-                                     (filtered_df['date'].iloc[i], y_values[i]),
-                                     textcoords="offset points", 
-                                     xytext=(0, 8), 
-                                     ha='center',
-                                     fontsize=8)
-                        
-                        # x축 날짜 포맷 설정
-                        plt.gcf().autofmt_xdate()
-                        
-                        # y축 설정 - 감정 레이블
-                        plt.yticks(range(len(emotions_order)), [f"{e}" for e in emotions_order], fontsize=8)
-                        
-                        # 그리드 및 레이블 추가
-                        plt.grid(True, linestyle='--', alpha=0.7)
-                        plt.title('감정 변화 추이', fontsize=12)
-                        plt.xlabel('날짜', fontsize=10)
-                        plt.ylabel('감정', fontsize=10)
-                        
-                        # 테마 스타일 설정
-                        sns.set_style("whitegrid")
-                        plt.tight_layout()
-                        
-                        # 그래프 표시
-                        st.pyplot(fig)
+                        # 테이블로 표시
+                        st.dataframe(display_df, use_container_width=True)
                         
                         # 추가 분석 텍스트
                         most_common_emotion = filtered_df['emotion'].mode()[0]
                         st.markdown(f"**분석 기간 동안 가장 많이 느낀 감정:** {most_common_emotion}")
+                        
+                        # 감정 빈도 분석
+                        emotion_counts = filtered_df['emotion'].value_counts()
+                        
+                        # 데이터프레임으로 변환
+                        emotion_freq_df = pd.DataFrame({
+                            '감정': emotion_counts.index,
+                            '빈도': emotion_counts.values,
+                            '비율(%)': (emotion_counts.values / emotion_counts.sum() * 100).round(1)
+                        })
+                        
+                        st.markdown("#### 감정 빈도 분석")
+                        st.dataframe(emotion_freq_df, use_container_width=True)
                 
                 with tab2:
                     st.subheader("주간/월간 감정 리포트")
@@ -1055,45 +1038,40 @@ else:
                                 emotions = selected_data.iloc[0]['emotion']
                                 emotion_counts = Counter(emotions)
                                 
-                                # 원형 그래프로 시각화 - 크기 축소
-                                fig, ax = plt.subplots(figsize=(6, 6))
+                                # 차트 대신 테이블로 표현
+                                st.markdown(f"#### {selected_week} 감정 분포")
                                 
-                                # 색상 설정
-                                colors = plt.cm.tab10(np.arange(len(emotion_counts)))
+                                # 데이터프레임으로 변환
+                                emotion_dist_df = pd.DataFrame({
+                                    '감정': list(emotion_counts.keys()),
+                                    '횟수': list(emotion_counts.values()),
+                                    '비율(%)': [(count / sum(emotion_counts.values()) * 100) for count in emotion_counts.values()]
+                                })
                                 
-                                # 그래프 그리기
-                                wedges, texts, autotexts = ax.pie(
-                                    emotion_counts.values(), 
-                                    labels=[f"{e}" for e in emotion_counts.keys()],
-                                    autopct='%1.1f%%',
-                                    colors=colors,
-                                    startangle=90,
-                                    textprops={'fontsize': 9}
-                                )
+                                # 비율 소수점 한 자리로 포맷팅
+                                emotion_dist_df['비율(%)'] = emotion_dist_df['비율(%)'].round(1)
                                 
-                                # 원형 그래프 가운데 원 추가해서 도넛 차트로 변경
-                                centre_circle = plt.Circle((0, 0), 0.70, fc='white')
-                                fig.gca().add_artist(centre_circle)
+                                # 빈도 내림차순으로 정렬
+                                emotion_dist_df = emotion_dist_df.sort_values('횟수', ascending=False)
                                 
-                                # 폰트 크기 조정
-                                plt.setp(autotexts, size=9, weight="bold")
-                                
-                                # 제목 추가
-                                ax.set_title(f"{selected_week} 감정 분포", pad=15, fontsize=12)
-                                plt.tight_layout()
-                                
-                                # 도넛 차트 표시
-                                st.pyplot(fig)
+                                # 테이블 표시
+                                st.dataframe(emotion_dist_df, use_container_width=True)
                                 
                                 # 요약 통계
                                 st.markdown("### 주간 감정 요약")
-                                st.markdown(f"- **총 대화 수:** {sum(emotion_counts.values())}회")
-                                st.markdown(f"- **가장 많이 느낀 감정:** {max(emotion_counts, key=emotion_counts.get)} ({emotion_counts[max(emotion_counts, key=emotion_counts.get)]}회)")
                                 
-                                # 감정 빈도 표시
-                                st.markdown("### 감정 빈도")
-                                for emotion, count in sorted(emotion_counts.items(), key=lambda x: x[1], reverse=True):
-                                    st.markdown(f"- **{emotion}:** {count}회")
+                                # 요약 데이터 준비
+                                summary_data = {
+                                    '지표': ['총 대화 수', '가장 많이 느낀 감정', '감정 다양성'],
+                                    '값': [
+                                        f"{sum(emotion_counts.values())}회",
+                                        f"{max(emotion_counts, key=emotion_counts.get)} ({emotion_counts[max(emotion_counts, key=emotion_counts.get)]}회)",
+                                        f"{len(emotion_counts)}개 감정 경험"
+                                    ]
+                                }
+                                
+                                # 요약 테이블 표시
+                                st.dataframe(pd.DataFrame(summary_data), use_container_width=True, hide_index=True)
                             else:
                                 st.warning("선택한 주에 데이터가 없습니다.")
                     else:  # 월간 리포트
@@ -1120,101 +1098,65 @@ else:
                                 emotions = selected_data.iloc[0]['emotion']
                                 emotion_counts = Counter(emotions)
                                 
-                                # 세로 막대 그래프로 시각화 - 크기 축소
-                                fig, ax = plt.subplots(figsize=(7, 4))
+                                # 차트 대신 테이블로 표현
+                                st.markdown(f"#### {selected_month} 감정 분포")
                                 
                                 # 감정 순서대로 정렬
                                 ordered_emotions = [e for e in EMOTIONS.keys() if e in emotion_counts]
                                 ordered_counts = [emotion_counts[e] for e in ordered_emotions]
                                 
-                                # 그래프 그리기
-                                bars = ax.bar(
-                                    range(len(ordered_emotions)), 
-                                    ordered_counts, 
-                                    color=plt.cm.tab10(np.arange(len(ordered_emotions)))
-                                )
+                                # 데이터프레임으로 변환
+                                emotion_monthly_df = pd.DataFrame({
+                                    '감정': ordered_emotions,
+                                    '횟수': ordered_counts,
+                                    '비율(%)': [(count / sum(ordered_counts) * 100) for count in ordered_counts]
+                                })
                                 
-                                # 축 설정
-                                ax.set_xticks(range(len(ordered_emotions)))
-                                ax.set_xticklabels([f"{e}" for e in ordered_emotions], rotation=45, ha='right', fontsize=8)
+                                # 비율 소수점 한 자리로 포맷팅
+                                emotion_monthly_df['비율(%)'] = emotion_monthly_df['비율(%)'].round(1)
                                 
-                                # 막대 위에 숫자 표시
-                                for bar in bars:
-                                    height = bar.get_height()
-                                    ax.text(bar.get_x() + bar.get_width()/2., height + 0.1,
-                                            f'{int(height)}',
-                                            ha='center', va='bottom', fontsize=8)
+                                # 빈도 내림차순으로 정렬
+                                emotion_monthly_df = emotion_monthly_df.sort_values('횟수', ascending=False)
                                 
-                                # 제목과 레이블 설정
-                                ax.set_title(f"{selected_month} 감정 발생 빈도", pad=10, fontsize=12)
-                                ax.set_ylabel('빈도', fontsize=10)
-                                
-                                # 여백 조정
-                                plt.tight_layout()
-                                
-                                # 그래프 표시
-                                st.pyplot(fig)
+                                # 테이블 표시
+                                st.dataframe(emotion_monthly_df, use_container_width=True)
                                 
                                 # 요약 통계
                                 st.markdown("### 월간 감정 요약")
-                                st.markdown(f"- **총 대화 수:** {sum(emotion_counts.values())}회")
-                                st.markdown(f"- **가장 많이 느낀 감정:** {max(emotion_counts, key=emotion_counts.get)} ({emotion_counts[max(emotion_counts, key=emotion_counts.get)]}회)")
                                 
-                                # 감정 빈도 표시
-                                st.markdown("### 감정 빈도")
-                                for emotion, count in sorted(emotion_counts.items(), key=lambda x: x[1], reverse=True):
-                                    st.markdown(f"- **{emotion}:** {count}회")
+                                # 요약 데이터 준비
+                                summary_data = {
+                                    '지표': ['총 대화 수', '가장 많이 느낀 감정', '감정 다양성'],
+                                    '값': [
+                                        f"{sum(emotion_counts.values())}회",
+                                        f"{max(emotion_counts, key=emotion_counts.get)} ({emotion_counts[max(emotion_counts, key=emotion_counts.get)]}회)",
+                                        f"{len(emotion_counts)}개 감정 / 전체 {len(EMOTIONS)}개 감정 중 ({(len(emotion_counts) / len(EMOTIONS) * 100):.1f}%)"
+                                    ]
+                                }
                                 
-                                # 추가 분석
-                                if len(emotion_counts) > 1:
-                                    diversity = (len(emotion_counts) / len(EMOTIONS)) * 100
-                                    st.markdown(f"- **감정 다양성:** {diversity:.1f}% (전체 감정 중 {len(emotion_counts)}개 경험)")
+                                # 요약 테이블 표시
+                                st.dataframe(pd.DataFrame(summary_data), use_container_width=True, hide_index=True)
                             else:
                                 st.warning("선택한 월에 데이터가 없습니다.")
                 
                 with tab3:
                     st.subheader("감정 패턴 분석")
                     
-                    # 전체 감정 분포 파이 차트
+                    # 전체 감정 분포 (파이 차트 대신 테이블로)
                     emotion_overall = df['emotion'].value_counts()
                     
-                    # 레이아웃 조정 - 파이 차트와 설명을 더 작게 표시
-                    col1, col2 = st.columns([1, 1])
+                    # 테이블로 표시
+                    st.markdown("#### 전체 감정 분포")
                     
-                    with col1:
-                        # 파이 차트 생성 - 크기 축소
-                        fig, ax = plt.subplots(figsize=(5, 5))
-                        
-                        # 색상 설정
-                        colors = plt.cm.tab10(np.arange(len(emotion_overall)))
-                        
-                        # 차트 그리기
-                        wedges, texts, autotexts = ax.pie(
-                            emotion_overall.values, 
-                            labels=[f"{e}" for e in emotion_overall.index],
-                            autopct='%1.1f%%',
-                            colors=colors,
-                            startangle=90,
-                            textprops={'fontsize': 8}
-                        )
-                        
-                        # 제목 추가
-                        ax.set_title("전체 감정 분포", fontsize=12)
-                        
-                        # 폰트 크기 조정
-                        plt.setp(autotexts, size=8, weight="bold")
-                        plt.tight_layout()
-                        
-                        # 그래프 표시
-                        st.pyplot(fig)
+                    # 데이터프레임으로 변환
+                    emotion_overall_df = pd.DataFrame({
+                        '감정': emotion_overall.index,
+                        '횟수': emotion_overall.values,
+                        '비율(%)': (emotion_overall.values / emotion_overall.sum() * 100).round(1)
+                    })
                     
-                    with col2:
-                        st.markdown("### 가장 자주 느끼는 감정")
-                        
-                        # 가장 많은 순서대로 정렬
-                        for emotion, count in emotion_overall.items():
-                            percentage = (count / emotion_overall.sum()) * 100
-                            st.markdown(f"- **{emotion}:** {count}회 ({percentage:.1f}%)")
+                    # 테이블 표시
+                    st.dataframe(emotion_overall_df, use_container_width=True)
                     
                     # 시간대별 감정 분석
                     st.markdown("### 시간대별 감정 패턴")
@@ -1228,29 +1170,30 @@ else:
                         include_lowest=True
                     )
                     
-                    # 시간대별 감정 분포
+                    # 시간대별 감정 분포 (히트맵 대신 테이블로)
                     time_emotion = pd.crosstab(df['time_category'], df['emotion'])
                     
-                    # 히트맵 생성 - 크기 축소
-                    fig, ax = plt.subplots(figsize=(8, 4))
-                    sns.heatmap(
-                        time_emotion, 
-                        annot=True, 
-                        fmt='d', 
-                        cmap='Blues',
-                        linewidths=.5,
-                        ax=ax,
-                        annot_kws={"size": 8}
-                    )
+                    # 시간대별 합계 추가
+                    time_emotion['합계'] = time_emotion.sum(axis=1)
                     
-                    # 제목 및 레이블 설정
-                    ax.set_title('시간대별 감정 발생 빈도', fontsize=12, pad=10)
-                    ax.set_xlabel('감정', fontsize=10)
-                    ax.set_ylabel('시간대', fontsize=10)
-                    plt.tight_layout()
+                    # 각 행의 합계를 정렬 기준으로 활용 (내림차순)
+                    time_emotion_sorted = time_emotion.sort_values('합계', ascending=False)
                     
-                    # 그래프 표시
-                    st.pyplot(fig)
+                    # 비율 계산을 위한 복사본 생성
+                    time_emotion_pct = time_emotion_sorted.copy()
+                    
+                    # '합계' 열 제외하고 각 행을 합계로 나누어 비율 계산
+                    for col in time_emotion_pct.columns[:-1]:  # 마지막 '합계' 열 제외
+                        time_emotion_pct[col] = (time_emotion_pct[col] / time_emotion_pct['합계'] * 100).round(1)
+                    
+                    # 절대값 테이블 표시
+                    st.markdown("#### 시간대별 감정 빈도 (절대값)")
+                    st.dataframe(time_emotion_sorted, use_container_width=True)
+                    
+                    # 비율 테이블 표시
+                    st.markdown("#### 시간대별 감정 분포 (비율 %)")
+                    # '합계' 열 제거 후 비율 테이블 표시
+                    st.dataframe(time_emotion_pct.drop(columns=['합계']), use_container_width=True)
                     
                     # 패턴 분석 문장 생성
                     try:
@@ -1289,7 +1232,7 @@ else:
                         
                         time_emotion_df = pd.DataFrame(time_emotion_data)
                         st.dataframe(time_emotion_df, hide_index=True, use_container_width=True)
-                        
+                            
                     except:
                         st.markdown("데이터가 충분하지 않아 상세 분석을 생성할 수 없습니다.")
                     

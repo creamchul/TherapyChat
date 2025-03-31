@@ -199,7 +199,7 @@ st.markdown("""
     }
     
     /* 다크 모드 */
-    .dark-mode {
+    [data-theme="dark"] {
         --primary-color: #6a89cc;
         --secondary-color: #f6a8cc;
         --background-color: #1e1e1e;
@@ -282,32 +282,6 @@ st.markdown("""
         font-size: 1.5rem;
         color: var(--primary-color);
         margin-bottom: 1rem;
-    }
-    
-    /* 테마 토글 버튼 개선 */
-    .theme-toggle {
-        position: fixed;
-        top: 10px;
-        right: 10px;
-        z-index: 1000;
-        background-color: var(--card-background);
-        color: var(--text-color);
-        border: 1px solid var(--border-color);
-        border-radius: 50%;
-        width: 40px;
-        height: 40px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        font-size: 20px;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        transition: all 0.3s ease;
-    }
-    
-    .theme-toggle:hover {
-        transform: scale(1.1);
-        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
     }
     
     /* 감정 선택 UI 개선 */
@@ -658,61 +632,7 @@ st.markdown("""
     .login-button:hover, .auth-container button:hover {
         background-color: var(--button-hover);
     }
-    
-    /* 다크 모드 토글을 위한 스크립트 */
-    .dark-mode-toggle {
-        position: fixed;
-        top: 10px;
-        right: 10px;
-        z-index: 9999;
-        background-color: var(--card-background);
-        border-radius: 50%;
-        width: 40px;
-        height: 40px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-        border: 1px solid var(--border-color);
-        transition: all 0.3s ease;
-    }
 </style>
-
-<script>
-    // 다크 모드 토글 함수
-    function toggleDarkMode() {
-        const body = document.body;
-        if (body.classList.contains('dark-mode')) {
-            body.classList.remove('dark-mode');
-            localStorage.setItem('theme', 'light');
-            document.getElementById('darkModeToggle').innerHTML = '🌙';
-        } else {
-            body.classList.add('dark-mode');
-            localStorage.setItem('theme', 'dark');
-            document.getElementById('darkModeToggle').innerHTML = '☀️';
-        }
-    }
-    
-    // 페이지 로드 시 적용
-    document.addEventListener('DOMContentLoaded', function() {
-        const savedTheme = localStorage.getItem('theme');
-        const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-        
-        if (savedTheme === 'dark' || (savedTheme === null && prefersDark)) {
-            document.body.classList.add('dark-mode');
-            document.getElementById('darkModeToggle').innerHTML = '☀️';
-        } else {
-            document.getElementById('darkModeToggle').innerHTML = '🌙';
-        }
-        
-        // 다크 모드 토글 버튼 클릭 이벤트
-        document.getElementById('darkModeToggle').addEventListener('click', toggleDarkMode);
-    });
-</script>
-
-<!-- 다크 모드 토글 버튼 -->
-<div id="darkModeToggle" class="dark-mode-toggle">🌙</div>
 """, unsafe_allow_html=True)
 
 # 인증 정보 설정
@@ -747,101 +667,23 @@ if 'api_key' not in st.session_state:
     st.session_state.api_key = os.getenv("OPENAI_API_KEY", "")
 if 'selected_chat_id' not in st.session_state:
     st.session_state.selected_chat_id = None
-
-# 현재 채팅 저장 함수
-def save_current_chat():
-    if 'messages' in st.session_state and len(st.session_state.messages) > 1:
-        chat_messages = [msg for msg in st.session_state.messages if msg["role"] != "system"]
-        if not chat_messages:
-            return False
-            
-        # 사용자가 입력한 메시지가 있는지 확인 (어시스턴트의 인사말만 있는 경우는 제외)
-        has_user_message = False
-        for msg in chat_messages:
-            if msg["role"] == "user":
-                has_user_message = True
-                break
-                
-        # 사용자 메시지가 없으면 저장하지 않음
-        if not has_user_message:
-            return False
-            
-        # 감정 값이 없으면 저장하지 않음
-        if not st.session_state.selected_emotion:
-            return False
-            
-        # 기존 채팅 세션 리스트 확인
-        if 'chat_sessions' not in st.session_state.user_data:
-            st.session_state.user_data['chat_sessions'] = []
-            
-        # 현재 채팅의 ID 확인 또는 생성
-        if 'current_chat_id' not in st.session_state:
-            # 채팅 세션 정보 생성
-            timestamp = datetime.datetime.now().isoformat()
-            st.session_state.current_chat_id = f"chat_{timestamp}"
-            
-        chat_id = st.session_state.current_chat_id
-        
-        # 미리보기 텍스트로 사용자 메시지 사용 (없으면 어시스턴트 메시지)
-        chat_preview = "새로운 대화"
-        for msg in chat_messages:
-            if msg["role"] == "user":
-                chat_preview = msg["content"]
-                break
-                
-        # 채팅 세션 정보 구성
-        chat_session = {
-            "id": chat_id,
-            "date": datetime.datetime.now().isoformat(),  # 마지막 수정 시간으로 업데이트
-            "emotion": st.session_state.selected_emotion,
-            "preview": chat_preview,
-            "messages": chat_messages
-        }
-        
-        # 기존 채팅이 있는지 확인하고 업데이트하거나 새로 추가
-        existing_chat_index = None
-        for i, chat in enumerate(st.session_state.user_data['chat_sessions']):
-            if chat['id'] == chat_id:
-                existing_chat_index = i
-                break
-                
-        if existing_chat_index is not None:
-            # 기존 채팅 업데이트
-            st.session_state.user_data['chat_sessions'][existing_chat_index] = chat_session
-        else:
-            # 새 채팅 추가
-            st.session_state.user_data['chat_sessions'].append(chat_session)
-        
-        # 사용자 데이터 저장
-        save_user_data(st.session_state.username, st.session_state.user_data)
-        return True
-    return False
-
-# 자동 저장 함수
-def auto_save():
-    if (st.session_state.logged_in and 
-        'user_data' in st.session_state and 
-        'username' in st.session_state and
-        'selected_emotion' in st.session_state and 
-        st.session_state.selected_emotion):
-        if 'messages' in st.session_state and len(st.session_state.messages) > 1:
-            save_current_chat()
-
-# 마지막 저장 시간 추적
-if 'last_save_time' not in st.session_state:
-    st.session_state.last_save_time = time.time()
-
-# 주기적으로 저장 (5분마다)
-current_time = time.time()
-if (current_time - st.session_state.last_save_time > 300 and  # 300초 = 5분
-    st.session_state.get('logged_in', False) and
-    st.session_state.get('selected_emotion')):
-    auto_save()
-    st.session_state.last_save_time = current_time
+if 'theme' not in st.session_state:
+    st.session_state.theme = "light"
 
 # 사이드바 - 로그인/로그아웃
 with st.sidebar:
     st.markdown("<h2 class='sub-header'>사용자 인증</h2>", unsafe_allow_html=True)
+    
+    # 테마 선택
+    theme = st.selectbox(
+        "테마 선택",
+        ["light", "dark"],
+        index=0 if st.session_state.theme == "light" else 1,
+        key="theme_select"
+    )
+    if theme != st.session_state.theme:
+        st.session_state.theme = theme
+        st.rerun()
     
     # API 키 설정
     if st.session_state.logged_in:

@@ -184,6 +184,7 @@ st.markdown("""
     /* 기본 스타일 */
     :root {
         --primary-color: #4f8bf9;
+        --secondary-color: #f6a8cc;
         --background-color: #f9f9f9;
         --card-background: white;
         --text-color: #333;
@@ -194,56 +195,30 @@ st.markdown("""
         --button-hover: #5679c1;
         --warning-color: #f44336;
         --success-color: #4CAF50;
+        --emotion-grid-columns: 4;
     }
     
     /* 다크 모드 */
-    @media (prefers-color-scheme: dark) {
-        :root {
-            --primary-color: #6a89cc;
-            --background-color: #1e1e1e;
-            --card-background: #2d2d2d;
-            --text-color: #f0f0f0;
-            --secondary-text-color: #aaaaaa;
-            --border-color: #444444;
-            --hover-color: #3d3d3d;
-            --button-color: #5679c1;
-            --button-hover: #4a6cb3;
-            --warning-color: #ff5252;
-            --success-color: #81c784;
-        }
-        
-        .st-emotion-cache-zt5igj {
-            color: var(--text-color) !important;
-        }
-        
-        .stTextInput input, .stSelectbox, .stDateInput input, .stTextArea textarea {
-            background-color: var(--card-background) !important;
-            color: var(--text-color) !important;
-            border-color: var(--border-color) !important;
-        }
-        
-        .stDataFrame {
-            background-color: var(--card-background) !important;
-        }
-        
-        .stDataFrame th {
-            background-color: var(--primary-color) !important;
-            color: white !important;
-        }
-        
-        .stDataFrame td {
-            color: var(--text-color) !important;
-        }
-        
-        .chat-card {
-            background-color: var(--card-background) !important;
-            color: var(--text-color) !important;
-            border-color: var(--border-color) !important;
-        }
-        
-        .chat-card:hover {
-            background-color: var(--hover-color) !important;
-        }
+    .dark-mode {
+        --primary-color: #6a89cc;
+        --secondary-color: #f6a8cc;
+        --background-color: #1e1e1e;
+        --card-background: #2d2d2d;
+        --text-color: #f0f0f0;
+        --secondary-text-color: #aaaaaa;
+        --border-color: #444444;
+        --hover-color: #3d3d3d;
+        --button-color: #5679c1;
+        --button-hover: #4a6cb3;
+        --warning-color: #ff5252;
+        --success-color: #81c784;
+    }
+    
+    /* 기본적으로 라이트 모드 */
+    body {
+        color: var(--text-color);
+        background-color: var(--background-color);
+        transition: all 0.3s ease;
     }
     
     /* 반응형 디자인 */
@@ -256,10 +231,21 @@ st.markdown("""
             font-size: 1.2rem !important;
         }
         
+        :root {
+            --emotion-grid-columns: 2;
+        }
+        
         .emotion-button {
             padding: 8px !important;
-            margin: 3px !important;
+            margin: 4px !important;
             font-size: 0.9rem !important;
+        }
+        
+        .emotion-grid {
+            display: grid;
+            grid-template-columns: repeat(var(--emotion-grid-columns), 1fr);
+            gap: 8px;
+            margin-bottom: 16px;
         }
         
         .chat-container {
@@ -277,14 +263,14 @@ st.markdown("""
             overflow-x: auto !important;
             width: 100% !important;
         }
+        
+        /* 모바일에서 사이드바가 너무 좁지 않게 */
+        .css-1d391kg, .css-1lcbmhc {
+            width: 100% !important;
+        }
     }
     
     /* 공통 스타일 */
-    body {
-        color: var(--text-color);
-        background-color: var(--background-color);
-    }
-    
     .main-header {
         font-size: 2.5rem;
         color: var(--primary-color);
@@ -296,6 +282,128 @@ st.markdown("""
         font-size: 1.5rem;
         color: var(--primary-color);
         margin-bottom: 1rem;
+    }
+    
+    /* 테마 토글 버튼 개선 */
+    .theme-toggle {
+        position: fixed;
+        top: 10px;
+        right: 10px;
+        z-index: 1000;
+        background-color: var(--card-background);
+        color: var(--text-color);
+        border: 1px solid var(--border-color);
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-size: 20px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        transition: all 0.3s ease;
+    }
+    
+    .theme-toggle:hover {
+        transform: scale(1.1);
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
+    
+    /* 감정 선택 UI 개선 */
+    .emotion-container {
+        padding: 15px;
+        border-radius: 10px;
+        background-color: var(--card-background);
+        margin-bottom: 20px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    
+    .emotion-grid {
+        display: grid;
+        grid-template-columns: repeat(var(--emotion-grid-columns), 1fr);
+        gap: 12px;
+        margin: 15px 0;
+    }
+    
+    .emotion-button {
+        background-color: var(--card-background);
+        color: var(--text-color);
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
+        padding: 15px 10px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    }
+    
+    .emotion-button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        background-color: var(--hover-color);
+    }
+    
+    .emotion-button .emoji {
+        font-size: 2rem;
+        margin-bottom: 8px;
+        display: block;
+    }
+    
+    .emotion-button.selected {
+        background-color: var(--button-color);
+        color: white;
+        border-color: transparent;
+    }
+    
+    /* 채팅 컨테이너 개선 */
+    .chat-container {
+        border-radius: 10px;
+        padding: 20px;
+        background-color: var(--card-background);
+        height: 400px;
+        overflow-y: auto;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        margin-bottom: 15px;
+        border: 1px solid var(--border-color);
+    }
+    
+    /* 입력 필드 개선 */
+    .stTextInput > div > div > input {
+        border-radius: 20px;
+        padding: 10px 15px;
+        border: 1px solid var(--border-color);
+        background-color: var(--card-background);
+        color: var(--text-color);
+        transition: all 0.3s ease;
+    }
+    
+    .stTextInput > div > div > input:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 2px rgba(79, 139, 249, 0.2);
+    }
+    
+    .stTextInput input, .stSelectbox, .stDateInput input, .stTextArea textarea {
+        background-color: var(--card-background) !important;
+        color: var(--text-color) !important;
+        border-color: var(--border-color) !important;
+    }
+    
+    .stDataFrame {
+        background-color: var(--card-background) !important;
+    }
+    
+    .stDataFrame th {
+        background-color: var(--primary-color) !important;
+        color: white !important;
+    }
+    
+    .stDataFrame td {
+        color: var(--text-color) !important;
     }
     
     /* 테이블 스타일 개선 */
@@ -356,64 +464,7 @@ st.markdown("""
         opacity: 1;
     }
     
-    /* 다크/라이트 모드 전환 버튼 */
-    .theme-toggle {
-        position: fixed;
-        top: 10px;
-        right: 10px;
-        z-index: 1000;
-        background-color: var(--card-background);
-        color: var(--text-color);
-        border: 1px solid var(--border-color);
-        border-radius: 50%;
-        width: 40px;
-        height: 40px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        font-size: 20px;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-    }
-    
-    /* 기존 스타일 유지 및 변수로 변경 */
-    .emotion-button {
-        background-color: var(--background-color);
-        border-radius: 10px;
-        padding: 10px;
-        margin: 5px;
-        text-align: center;
-        cursor: pointer;
-        transition: background-color 0.3s;
-    }
-    
-    .emotion-button:hover {
-        background-color: var(--hover-color);
-    }
-    
-    .emotion-selected {
-        background-color: var(--button-color);
-        color: white;
-        font-weight: bold;
-    }
-    
-    .chat-container {
-        border-radius: 10px;
-        padding: 20px;
-        background-color: var(--background-color);
-        height: 400px;
-        overflow-y: auto;
-    }
-    
-    .stTextInput > div > div > input {
-        border-radius: 20px;
-    }
-    
-    .emoji {
-        font-size: 1.2rem;
-        margin-right: 8px;
-    }
-    
+    /* 채팅 카드 스타일 */
     .chat-card {
         border: 1px solid var(--border-color);
         border-radius: 10px;
@@ -995,22 +1046,32 @@ else:
         if not st.session_state.selected_emotion:
             # 감정 선택 컨테이너
             st.markdown("<div class='emotion-container'>", unsafe_allow_html=True)
-            st.markdown("### 현재 감정을 선택해주세요")
+            st.markdown("<h3 style='text-align: center; margin-bottom: 15px;'>현재 감정을 선택해주세요</h3>", unsafe_allow_html=True)
             
-            # 감정 버튼 배치 (4열 그리드)
-            cols = st.columns(4)
+            # 감정 그리드 시작
+            st.markdown("<div class='emotion-grid'>", unsafe_allow_html=True)
             
             # 감정 목록 순회하며 버튼 배치
-            for index, (emotion, value) in enumerate(EMOTIONS.items()):
-                col = cols[index % 4]
+            for emotion, value in EMOTIONS.items():
                 emotion_icon = EMOTION_ICONS.get(emotion, "")
-                with col:
-                    if st.button(f"{emotion_icon} {emotion}", key=f"emo_{emotion}", 
-                               help=f"{value}",
-                               use_container_width=True,
-                               type="primary" if st.session_state.selected_emotion == emotion else "secondary"):
-                        handle_emotion_selection(emotion)
-                        
+                is_selected = st.session_state.selected_emotion == emotion
+                selected_class = "selected" if is_selected else ""
+                
+                st.markdown(f"""
+                <div class='emotion-button {selected_class}' onclick="document.getElementById('button_emo_{emotion}').click()">
+                    <span class='emoji'>{emotion_icon}</span>
+                    <span>{emotion}</span>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # 숨겨진 버튼 (클릭 이벤트 캡처용)
+                if st.button(f"{emotion}", key=f"emo_{emotion}", 
+                           help=f"{value}",
+                           visible=False):
+                    handle_emotion_selection(emotion)
+            
+            # 감정 그리드 종료
+            st.markdown("</div>", unsafe_allow_html=True)
             st.markdown("</div>", unsafe_allow_html=True)
         else:
             # 감정이 선택된 경우

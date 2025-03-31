@@ -74,6 +74,10 @@ def initialize_chat_history():
     """
     if "messages" not in st.session_state:
         st.session_state.messages = []
+        
+    # 채팅 페이지에 처음 접속할 때만 displayed_messages 초기화
+    if st.session_state.get('active_page') == "chat" and "displayed_messages" not in st.session_state:
+        st.session_state.displayed_messages = []
 
 def add_message(role, content):
     """
@@ -85,12 +89,31 @@ def display_chat_history():
     """
     채팅 기록을 표시합니다.
     """
+    # 표시할 메시지들
+    messages_to_display = []
+    
+    # 세션 상태에서 메시지 가져오기
     for message in st.session_state.messages:
-        if message["role"] == "user":
-            st.chat_message("user").write(message["content"])
-        elif message["role"] == "assistant":
-            st.chat_message("assistant").write(message["content"])
-        # system 메시지는 표시하지 않음
+        if message["role"] in ["user", "assistant"]:
+            messages_to_display.append(message)
+    
+    # 첫 로드 시에만 메시지 표시 (중복 표시 방지)
+    if "displayed_messages" not in st.session_state:
+        st.session_state.displayed_messages = []
+    
+    # 아직 표시되지 않은 메시지만 표시
+    for message in messages_to_display:
+        # 메시지 ID 생성 (내용과 역할 기반)
+        msg_id = f"{message['role']}_{hash(message['content'])}"
+        
+        if msg_id not in st.session_state.displayed_messages:
+            if message["role"] == "user":
+                st.chat_message("user").write(message["content"])
+            else:  # assistant
+                st.chat_message("assistant").write(message["content"])
+                
+            # 표시된 메시지 기록
+            st.session_state.displayed_messages.append(msg_id)
 
 def start_new_chat(emotion=None):
     """

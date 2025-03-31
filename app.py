@@ -245,6 +245,17 @@ def save_current_chat():
         if not chat_messages:
             return
             
+        # 사용자가 입력한 메시지가 있는지 확인 (어시스턴트의 인사말만 있는 경우는 제외)
+        has_user_message = False
+        for msg in chat_messages:
+            if msg["role"] == "user":
+                has_user_message = True
+                break
+                
+        # 사용자 메시지가 없으면 저장하지 않음
+        if not has_user_message:
+            return
+            
         # 기존 채팅 세션 리스트 확인
         if 'chat_sessions' not in st.session_state.user_data:
             st.session_state.user_data['chat_sessions'] = []
@@ -256,8 +267,14 @@ def save_current_chat():
             st.session_state.current_chat_id = f"chat_{timestamp}"
             
         chat_id = st.session_state.current_chat_id
-        chat_preview = chat_messages[0]["content"] if chat_messages else "비어있는 대화"
         
+        # 미리보기 텍스트로 사용자 메시지 사용 (없으면 어시스턴트 메시지)
+        chat_preview = "새로운 대화"
+        for msg in chat_messages:
+            if msg["role"] == "user":
+                chat_preview = msg["content"]
+                break
+                
         # 채팅 세션 정보 구성
         chat_session = {
             "id": chat_id,
@@ -315,6 +332,10 @@ else:
                     # 새로운 채팅 ID 생성
                     timestamp = datetime.datetime.now().isoformat()
                     st.session_state.current_chat_id = f"chat_{timestamp}"
+                    
+                    # displayed_messages 초기화
+                    if 'displayed_messages' in st.session_state:
+                        del st.session_state.displayed_messages
                     
                     st.session_state.selected_emotion = emotion
                     st.session_state.chat_started = True
@@ -374,6 +395,10 @@ else:
                 if 'current_chat_id' in st.session_state:
                     del st.session_state.current_chat_id
                 
+                # displayed_messages 초기화
+                if 'displayed_messages' in st.session_state:
+                    del st.session_state.displayed_messages
+                
                 st.rerun()
     
     elif st.session_state.active_page == "history":
@@ -425,6 +450,10 @@ else:
                         
                         # 기존 채팅 ID 사용
                         st.session_state.current_chat_id = selected_chat['id']
+                        
+                        # displayed_messages 초기화
+                        if 'displayed_messages' in st.session_state:
+                            del st.session_state.displayed_messages
                         
                         # 채팅 메시지 복원
                         st.session_state.messages = []

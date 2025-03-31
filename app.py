@@ -1,6 +1,7 @@
 import streamlit as st
 import os
 import datetime
+import time
 from dotenv import load_dotenv
 from auth import setup_auth, register_user, save_user_data, load_user_data, login, logout
 from chatbot import EMOTIONS, initialize_chat_history, display_chat_history, add_message, get_ai_response, start_new_chat, analyze_emotion
@@ -119,6 +120,22 @@ EMOTION_ICONS = {
     "감사": "🙏"
 }
 
+# 자동 저장 함수
+def auto_save():
+    if st.session_state.logged_in and 'user_data' in st.session_state and 'username' in st.session_state:
+        if 'messages' in st.session_state and len(st.session_state.messages) > 1:
+            save_current_chat()
+
+# 마지막 저장 시간 추적
+if 'last_save_time' not in st.session_state:
+    st.session_state.last_save_time = time.time()
+
+# 주기적으로 저장 (5분마다)
+current_time = time.time()
+if current_time - st.session_state.last_save_time > 300:  # 300초 = 5분
+    auto_save()
+    st.session_state.last_save_time = current_time
+
 # 세션 상태 초기화
 if 'logged_in' not in st.session_state:
     st.session_state.logged_in = False
@@ -214,6 +231,8 @@ with st.sidebar:
             st.rerun()
             
         if st.button("📋 채팅 기록", key="nav_history", use_container_width=True):
+            # 현재 채팅 저장
+            auto_save()
             st.session_state.active_page = "history"
             st.rerun()
             
@@ -300,6 +319,8 @@ def save_current_chat():
         
         # 사용자 데이터 저장
         save_user_data(st.session_state.username, st.session_state.user_data)
+        return True
+    return False
 
 # 메인 컨텐츠
 st.markdown("<h1 class='main-header'>감정 치유 AI 챗봇</h1>", unsafe_allow_html=True)
@@ -497,6 +518,10 @@ else:
                         if st.button("보기", key=f"view_{chat['id']}"):
                             st.session_state.selected_chat_id = chat['id']
                             st.rerun()
+
+# 주기적 자동 저장
+if st.session_state.logged_in and 'messages' in st.session_state and len(st.session_state.messages) > 1:
+    auto_save()
 
 # 푸터
 st.markdown("---")

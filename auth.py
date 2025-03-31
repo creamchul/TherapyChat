@@ -8,6 +8,15 @@ import hashlib
 import uuid
 import datetime
 
+# 절대 경로 설정
+DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "data"))
+CONFIG_PATH = os.path.join(DATA_DIR, "config.yaml")
+USER_DATA_DIR = os.path.join(DATA_DIR, "user_data")
+
+# 데이터 디렉토리 생성
+os.makedirs(DATA_DIR, exist_ok=True)
+os.makedirs(USER_DATA_DIR, exist_ok=True)
+
 # 비밀번호 해싱 함수
 def hash_password(password):
     """비밀번호를 안전하게 해싱합니다."""
@@ -22,7 +31,7 @@ def check_password(hashed_password, user_password):
 # 사용자 인증 설정
 def setup_auth():
     # 설정 파일이 없는 경우 생성
-    config_file = Path("config.yaml")
+    config_file = Path(CONFIG_PATH)
     if not config_file.exists():
         # 기본 사용자 생성
         credentials = {
@@ -92,7 +101,7 @@ def register_user(credentials):
                 return
                 
             # 설정 파일 로드
-            config_file = Path("config.yaml")
+            config_file = Path(CONFIG_PATH)
             try:
                 with open(config_file) as file:
                     config = yaml.load(file, Loader=SafeLoader)
@@ -114,6 +123,10 @@ def register_user(credentials):
                 with open(config_file, 'w') as file:
                     yaml.dump(config, file, default_flow_style=False)
                     
+                # 사용자 데이터 파일 초기화
+                initial_data = {"chat_history": [], "emotions": [], "chat_sessions": []}
+                save_user_data(username, initial_data)
+                
                 st.success("계정이 생성되었습니다. 로그인해 주세요.")
                 
                 # 세션 상태 업데이트
@@ -125,14 +138,15 @@ def register_user(credentials):
 # 사용자 데이터 관리
 def save_user_data(username, data):
     """사용자 데이터를 저장합니다."""
-    os.makedirs("user_data", exist_ok=True)
-    with open(f"user_data/{username}.pkl", "wb") as f:
+    user_data_path = os.path.join(USER_DATA_DIR, f"{username}.pkl")
+    with open(user_data_path, "wb") as f:
         pickle.dump(data, f)
 
 def load_user_data(username):
     """사용자 데이터를 로드합니다."""
+    user_data_path = os.path.join(USER_DATA_DIR, f"{username}.pkl")
     try:
-        with open(f"user_data/{username}.pkl", "rb") as f:
+        with open(user_data_path, "rb") as f:
             data = pickle.load(f)
             
             # 이전 버전 데이터 구조 마이그레이션
@@ -163,4 +177,7 @@ def load_user_data(username):
             
             return data
     except FileNotFoundError:
-        return {"chat_history": [], "emotions": [], "chat_sessions": []} 
+        # 새 사용자 데이터 초기화
+        initial_data = {"chat_history": [], "emotions": [], "chat_sessions": []}
+        save_user_data(username, initial_data)
+        return initial_data 

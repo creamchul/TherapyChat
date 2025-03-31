@@ -57,8 +57,8 @@ def get_ai_response(messages):
         # API 키 사용
         openai.api_key = st.session_state.api_key
         
-        # 클라이언트 객체 생성 대신 모듈 수준의 API 키 설정 방식 사용
-        response = openai.chat.completions.create(
+        # openai 0.28.0 버전용 API 호출 방식
+        response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
             messages=messages,
             temperature=0.7,
@@ -146,7 +146,8 @@ def analyze_emotion(text):
             {"role": "user", "content": text}
         ]
         
-        response = openai.chat.completions.create(
+        # openai 0.28.0 버전용 API 호출 방식
+        response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
             messages=messages,
             temperature=0.3,

@@ -71,11 +71,30 @@ st.markdown("""
         margin-bottom: 15px;
         background-color: white;
         box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        transition: transform 0.2s;
+        transition: transform 0.2s, box-shadow 0.2s;
+        position: relative;
+        z-index: 1;
+        cursor: pointer;
     }
     .chat-card:hover {
         transform: translateY(-2px);
         box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        background-color: #f9f9ff;
+    }
+    .chat-card:active {
+        transform: translateY(0);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    /* 버튼 숨기기 */
+    button[key^="chat_card_"] {
+        position: absolute;
+        opacity: 0;
+        width: 100%;
+        height: 100%;
+        top: 0;
+        left: 0;
+        z-index: 2;
+        cursor: pointer;
     }
     .chat-card-header {
         border-bottom: 1px solid #f0f0f0;
@@ -520,13 +539,32 @@ else:
                             st.rerun()
                     
                     with col2:
-                        if st.button("🗑️ 이 대화 삭제하기", type="primary", use_container_width=True):
-                            # 선택된 채팅 삭제
-                            st.session_state.user_data['chat_sessions'].pop(selected_chat_index)
-                            save_user_data(st.session_state.username, st.session_state.user_data)
-                            st.session_state.selected_chat_id = None
-                            st.success("대화가 삭제되었습니다.")
-                            st.rerun()
+                        # 삭제 확인 상태 확인
+                        if 'confirm_delete_dialog' not in st.session_state:
+                            st.session_state.confirm_delete_dialog = False
+                            
+                        if not st.session_state.confirm_delete_dialog:
+                            if st.button("🗑️ 이 대화 삭제하기", type="primary", use_container_width=True):
+                                st.session_state.confirm_delete_dialog = True
+                                st.rerun()
+                        else:
+                            st.warning("정말 이 대화를 삭제하시겠습니까?")
+                            conf_col1, conf_col2 = st.columns(2)
+                            
+                            with conf_col1:
+                                if st.button("예, 삭제합니다", key="confirm_delete_yes"):
+                                    # 선택된 채팅 삭제
+                                    st.session_state.user_data['chat_sessions'].pop(selected_chat_index)
+                                    save_user_data(st.session_state.username, st.session_state.user_data)
+                                    st.session_state.selected_chat_id = None
+                                    st.session_state.confirm_delete_dialog = False
+                                    st.success("대화가 삭제되었습니다.")
+                                    st.rerun()
+                            
+                            with conf_col2:
+                                if st.button("아니오", key="confirm_delete_no"):
+                                    st.session_state.confirm_delete_dialog = False
+                                    st.rerun()
                     
                     # 채팅 세션 정보 표시
                     chat_date = datetime.datetime.fromisoformat(selected_chat['date']).strftime("%Y년 %m월 %d일 %H:%M")
@@ -710,58 +748,29 @@ else:
                 # 필터링된 채팅 기록 표시
                 for chat in filtered_sessions:
                     with st.container():
-                        col1, col2 = st.columns([5, 1])
+                        # 카드 클릭 감지를 위한 버튼 (숨김)
+                        card_clicked = st.button(
+                            "보기",
+                            key=f"chat_card_{chat['id']}",
+                            help="이 대화 보기",
+                            label_visibility="collapsed",
+                            use_container_width=True
+                        )
                         
-                        with col1:
-                            # 카드 스타일 컨테이너
-                            st.markdown(f"""
-                            <div class="chat-card">
-                                <div class="chat-card-header">
-                                    <span class="chat-card-emotion">{EMOTION_ICONS.get(chat.get('emotion', ''), '')} {chat.get('emotion', '알 수 없음')}</span>
-                                    <span class="chat-card-date">{datetime.datetime.fromisoformat(chat.get('date', '')).strftime("%Y년 %m월 %d일 %H:%M")}</span>
-                                </div>
-                                <div class="chat-card-preview">{chat.get('preview', '대화 내용 없음')[:100]}...</div>
+                        # 카드 스타일 컨테이너
+                        st.markdown(f"""
+                        <div class="chat-card">
+                            <div class="chat-card-header">
+                                <span class="chat-card-emotion">{EMOTION_ICONS.get(chat.get('emotion', ''), '')} {chat.get('emotion', '알 수 없음')}</span>
+                                <span class="chat-card-date">{datetime.datetime.fromisoformat(chat.get('date', '')).strftime("%Y년 %m월 %d일 %H:%M")}</span>
                             </div>
-                            """, unsafe_allow_html=True)
+                            <div class="chat-card-preview">{chat.get('preview', '대화 내용 없음')[:100]}...</div>
+                        </div>
+                        """, unsafe_allow_html=True)
                         
-                        with col2:
-                            view_col, delete_col = st.columns(2)
-                            
-                            # 보기 버튼
-                            if view_col.button("👁️", key=f"view_{chat['id']}", help="대화 내용 보기"):
-                                st.session_state.selected_chat_id = chat['id']
-                                st.rerun()
-                            
-                            # 삭제 버튼
-                            if delete_col.button("🗑️", key=f"delete_{chat['id']}", help="이 대화 삭제하기"):
-                                # 해당 채팅 찾기
-                                chat_index = None
-                                for i, c in enumerate(st.session_state.user_data['chat_sessions']):
-                                    if c['id'] == chat['id']:
-                                        chat_index = i
-                                        break
-                                
-                                if chat_index is not None:
-                                    # 삭제 전 확인 대화상자 표시
-                                    if 'confirm_delete' not in st.session_state:
-                                        st.session_state.confirm_delete = chat['id']
-                                        st.warning("정말 이 대화를 삭제하시겠습니까?")
-                                        col_yes, col_no = st.columns(2)
-                                        if col_yes.button("예", key=f"confirm_yes_{chat['id']}"):
-                                            st.session_state.user_data['chat_sessions'].pop(chat_index)
-                                            save_user_data(st.session_state.username, st.session_state.user_data)
-                                            st.success("대화가 삭제되었습니다.")
-                                            del st.session_state.confirm_delete
-                                            st.rerun()
-                                        if col_no.button("아니오", key=f"confirm_no_{chat['id']}"):
-                                            del st.session_state.confirm_delete
-                                            st.rerun()
-                                    elif st.session_state.confirm_delete != chat['id']:
-                                        # 다른 채팅 삭제 확인 중이면 현재 요청 무시
-                                        pass
-                                    else:
-                                        # 이미 확인 중인 경우 (UI는 위에서 표시됨)
-                                        pass
+                        if card_clicked:
+                            st.session_state.selected_chat_id = chat['id']
+                            st.rerun()
 
 # 주기적 자동 저장
 if (st.session_state.logged_in and 

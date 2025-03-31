@@ -670,6 +670,54 @@ if 'selected_chat_id' not in st.session_state:
 if 'theme' not in st.session_state:
     st.session_state.theme = "light"
 
+# 자동 저장 함수 정의
+def auto_save():
+    """
+    현재 채팅을 자동으로 저장하는 함수
+    """
+    if not st.session_state.logged_in or not st.session_state.selected_emotion:
+        return
+    
+    # 현재 채팅 ID가 없으면 생성
+    if 'current_chat_id' not in st.session_state:
+        timestamp = datetime.datetime.now().isoformat()
+        st.session_state.current_chat_id = f"chat_{timestamp}"
+    
+    # 채팅 세션 업데이트
+    if 'user_data' not in st.session_state:
+        st.session_state.user_data = {"chat_history": [], "chat_sessions": []}
+    
+    chat_sessions = st.session_state.user_data.get('chat_sessions', [])
+    current_chat_id = st.session_state.current_chat_id
+    
+    # 현재 채팅 찾기 또는 새로 생성
+    current_chat = None
+    for chat in chat_sessions:
+        if chat['id'] == current_chat_id:
+            current_chat = chat
+            break
+    
+    if not current_chat:
+        current_chat = {
+            "id": current_chat_id,
+            "date": datetime.datetime.now().isoformat(),
+            "emotion": st.session_state.selected_emotion,
+            "messages": []
+        }
+        chat_sessions.append(current_chat)
+    
+    # 메시지 업데이트
+    if 'messages' in st.session_state:
+        current_chat['messages'] = st.session_state.messages
+        # 미리보기 업데이트 (마지막 사용자 메시지)
+        user_messages = [msg for msg in st.session_state.messages if msg['role'] == 'user']
+        if user_messages:
+            current_chat['preview'] = user_messages[-1]['content'][:100]
+    
+    # 사용자 데이터 업데이트
+    st.session_state.user_data['chat_sessions'] = chat_sessions
+    save_user_data(st.session_state.username, st.session_state.user_data)
+
 # 사이드바 - 로그인/로그아웃
 with st.sidebar:
     st.markdown("<h2 class='sub-header'>사용자 인증</h2>", unsafe_allow_html=True)
@@ -683,6 +731,7 @@ with st.sidebar:
     )
     if theme != st.session_state.theme:
         st.session_state.theme = theme
+        st.experimental_set_query_params(theme=theme)
         st.rerun()
     
     # API 키 설정

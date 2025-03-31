@@ -141,7 +141,7 @@ def save_current_chat():
     if 'messages' in st.session_state and len(st.session_state.messages) > 1:
         chat_messages = [msg for msg in st.session_state.messages if msg["role"] != "system"]
         if not chat_messages:
-            return
+            return False
             
         # 사용자가 입력한 메시지가 있는지 확인 (어시스턴트의 인사말만 있는 경우는 제외)
         has_user_message = False
@@ -152,7 +152,11 @@ def save_current_chat():
                 
         # 사용자 메시지가 없으면 저장하지 않음
         if not has_user_message:
-            return
+            return False
+            
+        # 감정 값이 없으면 저장하지 않음
+        if not st.session_state.selected_emotion:
+            return False
             
         # 기존 채팅 세션 리스트 확인
         if 'chat_sessions' not in st.session_state.user_data:
@@ -203,7 +207,11 @@ def save_current_chat():
 
 # 자동 저장 함수
 def auto_save():
-    if st.session_state.logged_in and 'user_data' in st.session_state and 'username' in st.session_state:
+    if (st.session_state.logged_in and 
+        'user_data' in st.session_state and 
+        'username' in st.session_state and
+        'selected_emotion' in st.session_state and 
+        st.session_state.selected_emotion):
         if 'messages' in st.session_state and len(st.session_state.messages) > 1:
             save_current_chat()
 
@@ -213,7 +221,9 @@ if 'last_save_time' not in st.session_state:
 
 # 주기적으로 저장 (5분마다)
 current_time = time.time()
-if current_time - st.session_state.last_save_time > 300:  # 300초 = 5분
+if (current_time - st.session_state.last_save_time > 300 and  # 300초 = 5분
+    st.session_state.get('logged_in', False) and
+    st.session_state.get('selected_emotion')):
     auto_save()
     st.session_state.last_save_time = current_time
 
@@ -296,8 +306,9 @@ with st.sidebar:
             st.rerun()
             
         if st.button("📋 채팅 기록", key="nav_history", use_container_width=True):
-            # 현재 채팅 저장
-            auto_save()
+            # 현재 채팅 저장 (감정 값이 있는 경우에만)
+            if st.session_state.selected_emotion:
+                auto_save()
             st.session_state.active_page = "history"
             st.rerun()
             
@@ -308,8 +319,8 @@ with st.sidebar:
                 if 'user_data' not in st.session_state:
                     st.session_state.user_data = {"chat_history": [], "chat_sessions": []}
                 
-                # 활성화된 채팅이 있으면 저장
-                if 'messages' in st.session_state and len(st.session_state.messages) > 1:
+                # 활성화된 채팅이 있으면 저장 (selected_emotion이 있을 때만)
+                if 'messages' in st.session_state and len(st.session_state.messages) > 1 and st.session_state.selected_emotion:
                     save_current_chat()
                 
                 save_user_data(st.session_state.username, st.session_state.user_data)
@@ -405,12 +416,8 @@ else:
             
             # 새 감정 선택 버튼
             if st.button("다른 감정 선택하기"):
-                # 현재 채팅 저장
+                # 현재 채팅 저장 (감정 상태가 변경되기 전에 저장)
                 save_current_chat()
-                
-                # 상태 초기화
-                st.session_state.selected_emotion = None
-                st.session_state.chat_started = False
                 
                 # 현재 채팅 ID 제거
                 if 'current_chat_id' in st.session_state:
@@ -419,6 +426,10 @@ else:
                 # displayed_messages 초기화
                 if 'displayed_messages' in st.session_state:
                     del st.session_state.displayed_messages
+                
+                # 상태 초기화 (저장 후에 초기화)
+                st.session_state.selected_emotion = None
+                st.session_state.chat_started = False
                 
                 st.rerun()
     
@@ -520,7 +531,10 @@ else:
                             st.rerun()
 
 # 주기적 자동 저장
-if st.session_state.logged_in and 'messages' in st.session_state and len(st.session_state.messages) > 1:
+if (st.session_state.logged_in and 
+    'messages' in st.session_state and 
+    len(st.session_state.messages) > 1 and
+    st.session_state.get('selected_emotion')):
     auto_save()
 
 # 푸터

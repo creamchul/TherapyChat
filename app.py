@@ -120,22 +120,6 @@ EMOTION_ICONS = {
     "감사": "🙏"
 }
 
-# 자동 저장 함수
-def auto_save():
-    if st.session_state.logged_in and 'user_data' in st.session_state and 'username' in st.session_state:
-        if 'messages' in st.session_state and len(st.session_state.messages) > 1:
-            save_current_chat()
-
-# 마지막 저장 시간 추적
-if 'last_save_time' not in st.session_state:
-    st.session_state.last_save_time = time.time()
-
-# 주기적으로 저장 (5분마다)
-current_time = time.time()
-if current_time - st.session_state.last_save_time > 300:  # 300초 = 5분
-    auto_save()
-    st.session_state.last_save_time = current_time
-
 # 세션 상태 초기화
 if 'logged_in' not in st.session_state:
     st.session_state.logged_in = False
@@ -151,6 +135,87 @@ if 'api_key' not in st.session_state:
     st.session_state.api_key = os.getenv("OPENAI_API_KEY", "")
 if 'selected_chat_id' not in st.session_state:
     st.session_state.selected_chat_id = None
+
+# 현재 채팅 저장 함수
+def save_current_chat():
+    if 'messages' in st.session_state and len(st.session_state.messages) > 1:
+        chat_messages = [msg for msg in st.session_state.messages if msg["role"] != "system"]
+        if not chat_messages:
+            return
+            
+        # 사용자가 입력한 메시지가 있는지 확인 (어시스턴트의 인사말만 있는 경우는 제외)
+        has_user_message = False
+        for msg in chat_messages:
+            if msg["role"] == "user":
+                has_user_message = True
+                break
+                
+        # 사용자 메시지가 없으면 저장하지 않음
+        if not has_user_message:
+            return
+            
+        # 기존 채팅 세션 리스트 확인
+        if 'chat_sessions' not in st.session_state.user_data:
+            st.session_state.user_data['chat_sessions'] = []
+            
+        # 현재 채팅의 ID 확인 또는 생성
+        if 'current_chat_id' not in st.session_state:
+            # 채팅 세션 정보 생성
+            timestamp = datetime.datetime.now().isoformat()
+            st.session_state.current_chat_id = f"chat_{timestamp}"
+            
+        chat_id = st.session_state.current_chat_id
+        
+        # 미리보기 텍스트로 사용자 메시지 사용 (없으면 어시스턴트 메시지)
+        chat_preview = "새로운 대화"
+        for msg in chat_messages:
+            if msg["role"] == "user":
+                chat_preview = msg["content"]
+                break
+                
+        # 채팅 세션 정보 구성
+        chat_session = {
+            "id": chat_id,
+            "date": datetime.datetime.now().isoformat(),  # 마지막 수정 시간으로 업데이트
+            "emotion": st.session_state.selected_emotion,
+            "preview": chat_preview,
+            "messages": chat_messages
+        }
+        
+        # 기존 채팅이 있는지 확인하고 업데이트하거나 새로 추가
+        existing_chat_index = None
+        for i, chat in enumerate(st.session_state.user_data['chat_sessions']):
+            if chat['id'] == chat_id:
+                existing_chat_index = i
+                break
+                
+        if existing_chat_index is not None:
+            # 기존 채팅 업데이트
+            st.session_state.user_data['chat_sessions'][existing_chat_index] = chat_session
+        else:
+            # 새 채팅 추가
+            st.session_state.user_data['chat_sessions'].append(chat_session)
+        
+        # 사용자 데이터 저장
+        save_user_data(st.session_state.username, st.session_state.user_data)
+        return True
+    return False
+
+# 자동 저장 함수
+def auto_save():
+    if st.session_state.logged_in and 'user_data' in st.session_state and 'username' in st.session_state:
+        if 'messages' in st.session_state and len(st.session_state.messages) > 1:
+            save_current_chat()
+
+# 마지막 저장 시간 추적
+if 'last_save_time' not in st.session_state:
+    st.session_state.last_save_time = time.time()
+
+# 주기적으로 저장 (5분마다)
+current_time = time.time()
+if current_time - st.session_state.last_save_time > 300:  # 300초 = 5분
+    auto_save()
+    st.session_state.last_save_time = current_time
 
 # 사이드바 - 로그인/로그아웃
 with st.sidebar:
@@ -256,71 +321,6 @@ with st.sidebar:
                 st.rerun()
             except Exception as e:
                 st.error(f"로그아웃 중 오류가 발생했습니다: {e}")
-
-# 현재 채팅 저장 함수
-def save_current_chat():
-    if 'messages' in st.session_state and len(st.session_state.messages) > 1:
-        chat_messages = [msg for msg in st.session_state.messages if msg["role"] != "system"]
-        if not chat_messages:
-            return
-            
-        # 사용자가 입력한 메시지가 있는지 확인 (어시스턴트의 인사말만 있는 경우는 제외)
-        has_user_message = False
-        for msg in chat_messages:
-            if msg["role"] == "user":
-                has_user_message = True
-                break
-                
-        # 사용자 메시지가 없으면 저장하지 않음
-        if not has_user_message:
-            return
-            
-        # 기존 채팅 세션 리스트 확인
-        if 'chat_sessions' not in st.session_state.user_data:
-            st.session_state.user_data['chat_sessions'] = []
-            
-        # 현재 채팅의 ID 확인 또는 생성
-        if 'current_chat_id' not in st.session_state:
-            # 채팅 세션 정보 생성
-            timestamp = datetime.datetime.now().isoformat()
-            st.session_state.current_chat_id = f"chat_{timestamp}"
-            
-        chat_id = st.session_state.current_chat_id
-        
-        # 미리보기 텍스트로 사용자 메시지 사용 (없으면 어시스턴트 메시지)
-        chat_preview = "새로운 대화"
-        for msg in chat_messages:
-            if msg["role"] == "user":
-                chat_preview = msg["content"]
-                break
-                
-        # 채팅 세션 정보 구성
-        chat_session = {
-            "id": chat_id,
-            "date": datetime.datetime.now().isoformat(),  # 마지막 수정 시간으로 업데이트
-            "emotion": st.session_state.selected_emotion,
-            "preview": chat_preview,
-            "messages": chat_messages
-        }
-        
-        # 기존 채팅이 있는지 확인하고 업데이트하거나 새로 추가
-        existing_chat_index = None
-        for i, chat in enumerate(st.session_state.user_data['chat_sessions']):
-            if chat['id'] == chat_id:
-                existing_chat_index = i
-                break
-                
-        if existing_chat_index is not None:
-            # 기존 채팅 업데이트
-            st.session_state.user_data['chat_sessions'][existing_chat_index] = chat_session
-        else:
-            # 새 채팅 추가
-            st.session_state.user_data['chat_sessions'].append(chat_session)
-        
-        # 사용자 데이터 저장
-        save_user_data(st.session_state.username, st.session_state.user_data)
-        return True
-    return False
 
 # 메인 컨텐츠
 st.markdown("<h1 class='main-header'>감정 치유 AI 챗봇</h1>", unsafe_allow_html=True)

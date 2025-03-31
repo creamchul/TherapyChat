@@ -669,6 +669,8 @@ if 'selected_chat_id' not in st.session_state:
     st.session_state.selected_chat_id = None
 if 'theme' not in st.session_state:
     st.session_state.theme = "light"
+if 'user_data' not in st.session_state:
+    st.session_state.user_data = {"chat_history": [], "chat_sessions": []}
 
 # 자동 저장 함수 정의
 def auto_save():

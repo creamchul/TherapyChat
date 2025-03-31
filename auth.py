@@ -144,7 +144,7 @@ def create_new_user(username, name, email, password_hash):
     """새 사용자 데이터를 생성하는 함수"""
     try:
         # 사용자 데이터 로드
-        user_data = load_user_data()
+        user_data = load_user_data(username)
         
         # 사용자 이름 중복 확인
         if username in user_data:
@@ -169,7 +169,7 @@ def create_new_user(username, name, email, password_hash):
         }
         
         # 저장
-        save_user_data(user_data)
+        save_user_data(username, user_data)
         
         return True
     except Exception as e:

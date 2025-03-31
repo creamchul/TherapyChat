@@ -86,9 +86,7 @@ def update_emotion_goal(emotion):
     st.session_state.user_data = user_data
     
     # 데이터 저장
-    all_user_data = load_user_data()
-    all_user_data[username] = user_data
-    save_user_data(all_user_data)
+    save_user_data(username, user_data)
 
 # 감정 선택 저장 처리
 def handle_emotion_selection(emotion):
@@ -129,9 +127,7 @@ def handle_emotion_selection(emotion):
         st.session_state.user_data['chat_sessions'] = chat_sessions
         
         # 사용자 데이터 저장
-        all_user_data = load_user_data()
-        all_user_data[st.session_state.username] = st.session_state.user_data
-        save_user_data(all_user_data)
+        save_user_data(st.session_state.username, st.session_state.user_data)
         
         # 감정 목표 업데이트
         update_emotion_goal(emotion)
@@ -1007,8 +1003,9 @@ else:
             # 감정 목록 순회하며 버튼 배치
             for index, (emotion, value) in enumerate(EMOTIONS.items()):
                 col = cols[index % 4]
+                emotion_icon = EMOTION_ICONS.get(emotion, "")
                 with col:
-                    if st.button(f"{emotion}", key=f"emo_{emotion}", 
+                    if st.button(f"{emotion_icon} {emotion}", key=f"emo_{emotion}", 
                                help=f"{value}",
                                use_container_width=True,
                                type="primary" if st.session_state.selected_emotion == emotion else "secondary"):

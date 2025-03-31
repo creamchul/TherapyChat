@@ -732,6 +732,11 @@ with st.sidebar:
     if theme != st.session_state.theme:
         st.session_state.theme = theme
         st.experimental_set_query_params(theme=theme)
+        st.markdown(f"""
+        <script>
+            document.documentElement.setAttribute('data-theme', '{theme}');
+        </script>
+        """, unsafe_allow_html=True)
         st.rerun()
     
     # API 키 설정
@@ -957,8 +962,7 @@ else:
                 
                 # 숨겨진 버튼 (클릭 이벤트 캡처용)
                 if st.button(f"{emotion}", key=f"emo_{emotion}", 
-                           help=f"{value}",
-                           visible=False):
+                           help=f"{value}"):
                     handle_emotion_selection(emotion)
             
             # 감정 그리드 종료

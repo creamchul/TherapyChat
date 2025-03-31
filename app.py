@@ -80,21 +80,42 @@ st.markdown("""
         transform: translateY(-2px);
         box-shadow: 0 4px 8px rgba(0,0,0,0.15);
         background-color: #f9f9ff;
+        border-color: #6a89cc;
     }
-    .chat-card:active {
-        transform: translateY(0);
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-    /* 버튼 숨기기 */
-    button[key^="chat_card_"] {
+    .chat-card:after {
+        content: "›";
         position: absolute;
+        right: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 24px;
+        color: #6a89cc;
         opacity: 0;
-        width: 100%;
-        height: 100%;
+        transition: opacity 0.2s;
+    }
+    .chat-card:hover:after {
+        opacity: 1;
+    }
+    /* Streamlit 버튼 스타일링 - 보이지 않지만 클릭 가능하게 */
+    div.stButton {
+        position: absolute;
         top: 0;
         left: 0;
+        width: 100%;
+        height: 100%;
         z-index: 2;
-        cursor: pointer;
+    }
+    div.stButton > button {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100% !important;
+        height: 100% !important;
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        color: transparent !important;
+        opacity: 0 !important;
     }
     .chat-card-header {
         border-bottom: 1px solid #f0f0f0;
@@ -747,16 +768,10 @@ else:
                 
                 # 필터링된 채팅 기록 표시
                 for chat in filtered_sessions:
-                    with st.container():
-                        # 카드 클릭 감지를 위한 버튼 (숨김)
-                        card_clicked = st.button(
-                            "보기",
-                            key=f"chat_card_{chat['id']}",
-                            help="이 대화 보기",
-                            label_visibility="collapsed",
-                            use_container_width=True
-                        )
-                        
+                    # 카드 컨테이너 (상대 위치로 설정)
+                    card_container = st.container()
+                    
+                    with card_container:
                         # 카드 스타일 컨테이너
                         st.markdown(f"""
                         <div class="chat-card">
@@ -767,6 +782,12 @@ else:
                             <div class="chat-card-preview">{chat.get('preview', '대화 내용 없음')[:100]}...</div>
                         </div>
                         """, unsafe_allow_html=True)
+                        
+                        # 카드 클릭 감지를 위한 버튼 (숨김)
+                        card_clicked = st.button(
+                            "보기",
+                            key=f"chat_card_{chat['id']}"
+                        )
                         
                         if card_clicked:
                             st.session_state.selected_chat_id = chat['id']

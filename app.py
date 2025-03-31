@@ -813,97 +813,138 @@ if not st.session_state.logged_in:
 else:
     # 선택된 페이지에 따라 다른 내용 표시
     if st.session_state.active_page == "chat":
-        # 감정 선택 페이지 또는 채팅 페이지 표시
-        if not st.session_state.selected_emotion:
-            st.markdown("<h2 class='sub-header'>감정 선택</h2>", unsafe_allow_html=True)
-            st.write("현재 느끼는 감정을 선택해주세요:")
+        st.markdown("<h2 class='sub-header'>AI 챗봇과 대화하기</h2>", unsafe_allow_html=True)
+        
+        # 프로필 정보 가져오기 (로그인 한 경우)
+        if st.session_state.logged_in:
+            user_data = st.session_state.user_data
+            profile = user_data.get("profile", {})
             
-            # 감정 버튼 그리드 생성
-            col1, col2 = st.columns(2)
+            # 활성화된 감정 목표 확인
+            emotion_goals = user_data.get("emotion_goals", {"active_goal": None, "history": []})
+            active_goal = emotion_goals.get("active_goal", None)
             
-            for i, (emotion, description) in enumerate(EMOTIONS.items()):
-                col = col1 if i % 2 == 0 else col2
-                icon = EMOTION_ICONS.get(emotion, "")
+            # 감정 목표가 있는 경우 표시
+            if active_goal:
+                with st.expander("현재 감정 목표", expanded=False):
+                    col1, col2 = st.columns([3, 1])
+                    with col1:
+                        st.markdown(f"""
+                        **목표 감정:** {active_goal['target_emotion']}  
+                        **목표 기간:** {active_goal['start_date']} ~ {active_goal['end_date']}  
+                        **설명:** {active_goal['description']}
+                        """)
+                    with col2:
+                        # 진행도 표시
+                        st.markdown(f"**진행도:** {active_goal['progress']}%")
+                        st.progress(active_goal['progress'] / 100)
+        else:
+            # 감정 선택 페이지 또는 채팅 페이지 표시
+            if not st.session_state.selected_emotion:
+                st.markdown("<h2 class='sub-header'>감정 선택</h2>", unsafe_allow_html=True)
+                st.write("현재 느끼는 감정을 선택해주세요:")
                 
-                if col.button(f"{icon} {emotion}", 
-                             key=f"emotion_{emotion}", 
-                             help=description,
-                             use_container_width=True):
-                    # 이전 채팅이 있다면 저장
-                    if 'messages' in st.session_state and len(st.session_state.messages) > 1:
-                        save_current_chat()
+                # 감정 선택 컨테이너
+                st.markdown("<div class='emotion-container'>", unsafe_allow_html=True)
+                st.markdown("### 현재 감정을 선택해주세요")
+                
+                # 감정 버튼 배치 (4열 그리드)
+                cols = st.columns(4)
+                
+                # 감정 목록 순회하며 버튼 배치
+                for index, (emotion, value) in enumerate(EMOTIONS.items()):
+                    col = cols[index % 4]
+                    with col:
+                        if st.button(f"{emotion}", key=f"emo_{emotion}", 
+                                   help=f"{value}",
+                                   use_container_width=True,
+                                   type="primary" if st.session_state.selected_emotion == emotion else "secondary"):
+                            # 감정 설정
+                            st.session_state.selected_emotion = emotion
+                            
+                            # 현재 채팅 세션에 감정 저장
+                            if 'chat_id' in st.session_state and st.session_state.chat_id:
+                                chat_id = st.session_state.chat_id
+                                
+                                # 채팅 세션 업데이트
+                                chat_sessions = st.session_state.user_data['chat_sessions']
+                                for i, chat in enumerate(chat_sessions):
+                                    if chat['id'] == chat_id:
+                                        chat['emotion'] = emotion
+                                        break
+                                
+                                # 채팅 기록 업데이트
+                                st.session_state.user_data['chat_sessions'] = chat_sessions
+                                
+                                # 사용자 데이터 저장
+                                save_user_data(st.session_state.user_data)
+                                
+                                # 감정 목표 업데이트
+                                update_emotion_goal(emotion)
+                            
+                            # 화면 갱신
+                            st.rerun()
                         
-                    # 새로운 채팅 ID 생성
-                    timestamp = datetime.datetime.now().isoformat()
-                    st.session_state.current_chat_id = f"chat_{timestamp}"
+                st.markdown("</div>", unsafe_allow_html=True)
+            else:
+                # 감정이 선택된 경우
+                st.markdown(f"<h2 class='sub-header'>선택한 감정: {EMOTION_ICONS.get(st.session_state.selected_emotion, '')} {st.session_state.selected_emotion}</h2>", unsafe_allow_html=True)
+                
+                # 감정 설명
+                emotion_description = EMOTIONS.get(st.session_state.selected_emotion, "")
+                st.write(f"**{emotion_description}**")
+                
+                # 채팅 인터페이스
+                initialize_chat_history()
+                display_chat_history()
+                
+                # 사용자 입력
+                user_input = st.chat_input("메시지를 입력하세요...")
+                if user_input:
+                    # API 키 확인
+                    if not st.session_state.api_key:
+                        st.warning("OpenAI API 키를 입력해주세요. 왼쪽 사이드바의 'OpenAI API 키 설정'에서 설정할 수 있습니다.")
+                        st.stop()
+                        
+                    # 사용자 메시지 추가
+                    add_message("user", user_input)
+                    st.chat_message("user").write(user_input)
+                    
+                    # 채팅 기록에서 시스템 메시지를 제외한 메시지 컨텍스트 생성
+                    messages_for_api = [msg for msg in st.session_state.messages if msg["role"] != "assistant" or st.session_state.messages.index(msg) == 0]
+                    
+                    # API 키 설정
+                    os.environ["OPENAI_API_KEY"] = st.session_state.api_key
+                    
+                    # AI 응답 생성
+                    with st.spinner("응답 생성 중..."):
+                        ai_response = get_ai_response(messages_for_api)
+                    
+                    # AI 메시지 추가
+                    add_message("assistant", ai_response)
+                    st.chat_message("assistant").write(ai_response)
+                    
+                    # 채팅 자동 저장
+                    save_current_chat()
+                
+                # 새 감정 선택 버튼
+                if st.button("다른 감정 선택하기"):
+                    # 현재 채팅 저장 (감정 상태가 변경되기 전에 저장)
+                    save_current_chat()
+                    
+                    # 현재 채팅 ID 제거
+                    if 'current_chat_id' in st.session_state:
+                        del st.session_state.current_chat_id
                     
                     # displayed_messages 초기화
                     if 'displayed_messages' in st.session_state:
                         del st.session_state.displayed_messages
                     
-                    st.session_state.selected_emotion = emotion
-                    st.session_state.chat_started = True
-                    start_new_chat(emotion)
-                    st.rerun()
-        else:
-            # 감정이 선택된 경우
-            st.markdown(f"<h2 class='sub-header'>선택한 감정: {EMOTION_ICONS.get(st.session_state.selected_emotion, '')} {st.session_state.selected_emotion}</h2>", unsafe_allow_html=True)
-            
-            # 감정 설명
-            emotion_description = EMOTIONS.get(st.session_state.selected_emotion, "")
-            st.write(f"**{emotion_description}**")
-            
-            # 채팅 인터페이스
-            initialize_chat_history()
-            display_chat_history()
-            
-            # 사용자 입력
-            user_input = st.chat_input("메시지를 입력하세요...")
-            if user_input:
-                # API 키 확인
-                if not st.session_state.api_key:
-                    st.warning("OpenAI API 키를 입력해주세요. 왼쪽 사이드바의 'OpenAI API 키 설정'에서 설정할 수 있습니다.")
-                    st.stop()
+                    # 상태 초기화 (저장 후에 초기화)
+                    st.session_state.selected_emotion = None
+                    st.session_state.chat_started = False
                     
-                # 사용자 메시지 추가
-                add_message("user", user_input)
-                st.chat_message("user").write(user_input)
-                
-                # 채팅 기록에서 시스템 메시지를 제외한 메시지 컨텍스트 생성
-                messages_for_api = [msg for msg in st.session_state.messages if msg["role"] != "assistant" or st.session_state.messages.index(msg) == 0]
-                
-                # API 키 설정
-                os.environ["OPENAI_API_KEY"] = st.session_state.api_key
-                
-                # AI 응답 생성
-                with st.spinner("응답 생성 중..."):
-                    ai_response = get_ai_response(messages_for_api)
-                
-                # AI 메시지 추가
-                add_message("assistant", ai_response)
-                st.chat_message("assistant").write(ai_response)
-                
-                # 채팅 자동 저장
-                save_current_chat()
-            
-            # 새 감정 선택 버튼
-            if st.button("다른 감정 선택하기"):
-                # 현재 채팅 저장 (감정 상태가 변경되기 전에 저장)
-                save_current_chat()
-                
-                # 현재 채팅 ID 제거
-                if 'current_chat_id' in st.session_state:
-                    del st.session_state.current_chat_id
-                
-                # displayed_messages 초기화
-                if 'displayed_messages' in st.session_state:
-                    del st.session_state.displayed_messages
-                
-                # 상태 초기화 (저장 후에 초기화)
-                st.session_state.selected_emotion = None
-                st.session_state.chat_started = False
-                
-                st.rerun()
+                    st.rerun()
     
     elif st.session_state.active_page == "history":
         st.markdown("<h2 class='sub-header'>채팅 기록</h2>", unsafe_allow_html=True)
@@ -1683,3 +1724,299 @@ def display_dataframe_with_pagination(df, key_prefix="table"):
     st.markdown("</div>", unsafe_allow_html=True)
     
     return filtered_df 
+
+# 프로필 관리 페이지
+if st.session_state.active_page == "profile":
+    st.markdown("<h2 class='sub-header'>프로필 관리</h2>", unsafe_allow_html=True)
+    
+    # 사용자 데이터 가져오기
+    username = st.session_state.username
+    user_data = st.session_state.user_data
+    
+    # 프로필 정보
+    profile = user_data.get("profile", {
+        "nickname": user_data.get("name", username),
+        "image": "",
+        "bio": "",
+        "theme": "light"
+    })
+    
+    # 탭 설정
+    tab1, tab2 = st.tabs(["기본 정보", "감정 목표"])
+    
+    with tab1:
+        st.subheader("프로필 설정")
+        
+        # 프로필 이미지
+        current_image = profile.get("image", "")
+        if current_image:
+            st.image(current_image, width=150)
+        
+        # 프로필 이미지 업로드
+        uploaded_file = st.file_uploader("프로필 이미지 업로드", type=["jpg", "jpeg", "png"])
+        if uploaded_file is not None:
+            # 이미지 처리 및 base64 인코딩
+            import base64
+            from PIL import Image
+            import io
+            
+            # 이미지 크기 조정
+            img = Image.open(uploaded_file)
+            img = img.resize((150, 150))
+            
+            # base64로 변환
+            buffered = io.BytesIO()
+            img.save(buffered, format="PNG")
+            img_str = base64.b64encode(buffered.getvalue()).decode()
+            profile["image"] = f"data:image/png;base64,{img_str}"
+            
+            # 업로드된 이미지 표시
+            st.image(img, width=150)
+        
+        # 닉네임 입력
+        nickname = st.text_input("닉네임", value=profile.get("nickname", ""))
+        
+        # 자기소개 입력
+        bio = st.text_area("자기소개", value=profile.get("bio", ""), height=150)
+        
+        # 테마 선택
+        theme = st.selectbox("테마", ["라이트 모드", "다크 모드"], 
+                            index=0 if profile.get("theme", "light") == "light" else 1)
+        
+        # 설정 저장
+        if st.button("프로필 저장", type="primary"):
+            # 프로필 업데이트
+            profile["nickname"] = nickname
+            profile["bio"] = bio
+            profile["theme"] = "light" if theme == "라이트 모드" else "dark"
+            
+            # 사용자 데이터 업데이트
+            user_data["profile"] = profile
+            st.session_state.user_data = user_data
+            
+            # 데이터 저장
+            from auth import save_user_data, load_user_data
+            all_user_data = load_user_data()
+            all_user_data[username] = user_data
+            save_user_data(all_user_data)
+            
+            st.success("프로필이 성공적으로 저장되었습니다!")
+            time.sleep(1)
+            st.rerun()
+    
+    with tab2:
+        st.subheader("감정 목표 설정")
+        
+        # 감정 목표 데이터
+        emotion_goals = user_data.get("emotion_goals", {"active_goal": None, "history": []})
+        active_goal = emotion_goals.get("active_goal", None)
+        
+        # 현재 목표 표시
+        if active_goal:
+            st.markdown(f"""
+            ### 현재 목표
+            **목표 감정:** {active_goal['target_emotion']}
+            **시작일:** {active_goal['start_date']}
+            **목표일:** {active_goal['end_date']}
+            **목표 설명:** {active_goal['description']}
+            **진행 상태:** {active_goal['progress']}%
+            """)
+            
+            # 목표 달성도
+            st.progress(active_goal['progress'] / 100)
+            
+            # 목표 완료 버튼
+            if st.button("목표 완료", type="primary", help="현재 목표를 완료하고 새 목표를 설정합니다."):
+                # 목표 완료 처리
+                active_goal['completed'] = True
+                active_goal['completion_date'] = datetime.datetime.now().strftime("%Y-%m-%d")
+                emotion_goals['history'].append(active_goal)
+                emotion_goals['active_goal'] = None
+                
+                # 사용자 데이터 업데이트
+                user_data["emotion_goals"] = emotion_goals
+                st.session_state.user_data = user_data
+                
+                # 데이터 저장
+                all_user_data = load_user_data()
+                all_user_data[username] = user_data
+                save_user_data(all_user_data)
+                
+                st.success("목표가 완료되었습니다!")
+                time.sleep(1)
+                st.rerun()
+        
+        # 구분선
+        st.markdown("---")
+        
+        # 새 목표 설정
+        st.subheader("새 감정 목표 설정")
+        
+        # 목표 감정 선택
+        target_emotion = st.selectbox(
+            "목표 감정", 
+            list(EMOTIONS.keys()),
+            index=0,
+            help="달성하고자 하는 감정을 선택하세요."
+        )
+        
+        # 목표 기간 설정
+        col1, col2 = st.columns(2)
+        with col1:
+            start_date = st.date_input(
+                "시작일", 
+                value=datetime.datetime.now().date(),
+                help="목표 시작일을 선택하세요"
+            )
+        with col2:
+            # 기본값으로 2주 후
+            default_end = datetime.datetime.now().date() + datetime.timedelta(days=14)
+            end_date = st.date_input(
+                "목표일", 
+                value=default_end,
+                help="목표 달성 예정일을 선택하세요"
+            )
+        
+        # 목표 설명
+        goal_description = st.text_area(
+            "목표 설명", 
+            value="", 
+            height=100,
+            help="감정 목표에 대한 설명이나 달성 방법을 적어주세요."
+        )
+        
+        # 목표 저장
+        if st.button("목표 설정", type="primary"):
+            if active_goal:
+                if st.warning("이미 활성화된 목표가 있습니다. 기존 목표를 완료하고 새 목표를 설정하시겠습니까?"):
+                    # 기존 목표 완료 처리
+                    active_goal['completed'] = True
+                    active_goal['completion_date'] = datetime.datetime.now().strftime("%Y-%m-%d")
+                    emotion_goals['history'].append(active_goal)
+            else:
+                # 새 목표 설정
+                new_goal = {
+                    "target_emotion": target_emotion,
+                    "start_date": start_date.strftime("%Y-%m-%d"),
+                    "end_date": end_date.strftime("%Y-%m-%d"),
+                    "description": goal_description,
+                    "progress": 0,
+                    "completed": False,
+                    "creation_date": datetime.datetime.now().strftime("%Y-%m-%d"),
+                    "achievements": []
+                }
+                
+                # 목표 저장
+                emotion_goals['active_goal'] = new_goal
+                
+                # 사용자 데이터 업데이트
+                user_data["emotion_goals"] = emotion_goals
+                st.session_state.user_data = user_data
+                
+                # 데이터 저장
+                all_user_data = load_user_data()
+                all_user_data[username] = user_data
+                save_user_data(all_user_data)
+                
+                st.success("새 감정 목표가 설정되었습니다!")
+                time.sleep(1)
+                st.rerun()
+        
+        # 목표 내역 표시
+        if emotion_goals.get("history"):
+            st.markdown("### 이전 목표 내역")
+            
+            for i, goal in enumerate(reversed(emotion_goals["history"])):
+                with st.expander(f"{goal['target_emotion']} ({goal['start_date']} ~ {goal.get('completion_date', '진행 중')})"):
+                    st.markdown(f"""
+                    **목표 감정:** {goal['target_emotion']}
+                    **시작일:** {goal['start_date']}
+                    **완료일:** {goal.get('completion_date', '미완료')}
+                    **목표 설명:** {goal['description']}
+                    **달성도:** {goal['progress']}%
+                    """)
+                    
+                    if goal.get('achievements'):
+                        st.markdown("**주요 성과:**")
+                        for achievement in goal['achievements']:
+                            st.markdown(f"- {achievement['date']}: {achievement['description']}")
+
+# 감정 목표 업데이트 함수
+def update_emotion_goal(emotion):
+    """
+    감정에 따라 사용자의 감정 목표 진행도를 업데이트하는 함수
+    """
+    if not st.session_state.logged_in:
+        return
+    
+    username = st.session_state.username
+    user_data = st.session_state.user_data
+    
+    # 활성화된 감정 목표 확인
+    emotion_goals = user_data.get("emotion_goals", {"active_goal": None, "history": []})
+    active_goal = emotion_goals.get("active_goal", None)
+    
+    if not active_goal:
+        return
+    
+    # 목표 감정과 현재 감정 비교
+    target_emotion = active_goal.get("target_emotion")
+    if emotion == target_emotion:
+        # 목표 감정과 일치하는 경우 진행도 증가
+        progress = active_goal.get("progress", 0)
+        # 5% 증가, 최대 100%
+        progress = min(progress + 5, 100)
+        active_goal["progress"] = progress
+        
+        # 성과 기록
+        today = datetime.datetime.now().strftime("%Y-%m-%d")
+        active_goal.setdefault("achievements", []).append({
+            "date": today,
+            "description": f"목표 감정 '{target_emotion}'을(를) 경험했습니다."
+        })
+        
+        # 목표 달성 시 자동 완료
+        if progress >= 100:
+            active_goal["completed"] = True
+            active_goal["completion_date"] = today
+            emotion_goals["history"].append(active_goal)
+            emotion_goals["active_goal"] = None
+    
+    # 사용자 데이터 업데이트
+    user_data["emotion_goals"] = emotion_goals
+    st.session_state.user_data = user_data
+    
+    # 데이터 저장
+    all_user_data = load_user_data()
+    all_user_data[username] = user_data
+    save_user_data(all_user_data)
+
+# 감정 선택 저장 처리
+def handle_emotion_selection(emotion):
+    """
+    선택된 감정 처리 및 저장 함수
+    """
+    # 감정 설정
+    st.session_state.selected_emotion = emotion
+    
+    # 현재 채팅 세션에 감정 저장
+    chat_id = st.session_state.chat_id
+    
+    # 채팅 세션 업데이트
+    chat_sessions = st.session_state.user_data['chat_sessions']
+    for i, chat in enumerate(chat_sessions):
+        if chat['id'] == chat_id:
+            chat['emotion'] = emotion
+            break
+    
+    # 채팅 기록 업데이트
+    st.session_state.user_data['chat_sessions'] = chat_sessions
+    
+    # 사용자 데이터 저장
+    save_user_data(st.session_state.user_data)
+    
+    # 감정 목표 업데이트
+    update_emotion_goal(emotion)
+    
+    # 화면 갱신
+    st.rerun()

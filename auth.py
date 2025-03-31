@@ -75,7 +75,7 @@ def logout():
             continue
         del st.session_state[key]
 
-# 새 사용자 등록 기능
+# 사용자 등록 UI 함수
 def register_user(credentials):
     st.title("회원가입")
     
@@ -127,17 +127,54 @@ def register_user(credentials):
                     }
                     yaml.dump(config, file, default_flow_style=False)
                     
-                # 사용자 데이터 파일 초기화
-                initial_data = {"chat_history": [], "emotions": [], "chat_sessions": []}
-                save_user_data(username, initial_data)
-                
-                st.success("계정이 생성되었습니다. 로그인해 주세요.")
-                
-                # 세션 상태 업데이트
-                st.session_state.active_tab = "로그인"
-                st.rerun()
+                # 사용자 데이터 초기화 및 저장
+                if create_new_user(username, name, email, hashed_password):
+                    st.success("계정이 생성되었습니다. 로그인해 주세요.")
+                    
+                    # 세션 상태 업데이트
+                    st.session_state.active_tab = "로그인"
+                    st.rerun()
+                else:
+                    st.error("사용자 데이터 생성 중 오류가 발생했습니다.")
             except Exception as e:
                 st.error(f"오류가 발생했습니다: {e}")
+
+# 사용자 생성 백엔드 함수
+def create_new_user(username, name, email, password_hash):
+    """새 사용자 데이터를 생성하는 함수"""
+    try:
+        # 사용자 데이터 로드
+        user_data = load_user_data()
+        
+        # 사용자 이름 중복 확인
+        if username in user_data:
+            return False
+        
+        # 새 사용자 정보 저장
+        user_data[username] = {
+            "name": name,
+            "email": email,
+            "password": password_hash,
+            "chat_sessions": [],
+            "profile": {
+                "nickname": name,
+                "image": "",
+                "bio": "",
+                "theme": "light"
+            },
+            "emotion_goals": {
+                "active_goal": None,
+                "history": []
+            }
+        }
+        
+        # 저장
+        save_user_data(user_data)
+        
+        return True
+    except Exception as e:
+        print(f"사용자 생성 오류: {e}")
+        return False
 
 # 사용자 데이터 관리
 def save_user_data(username, data):

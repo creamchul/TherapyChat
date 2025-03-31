@@ -100,6 +100,65 @@ st.markdown("""
         -webkit-line-clamp: 2;
         -webkit-box-orient: vertical;
     }
+    .filter-section {
+        background-color: #f9f9f9;
+        border-radius: 10px;
+        padding: 15px;
+        margin-bottom: 20px;
+    }
+    .filter-title {
+        font-size: 1.2rem;
+        font-weight: bold;
+        margin-bottom: 10px;
+    }
+    .filter-item {
+        margin-bottom: 5px;
+    }
+    .action-button {
+        border-radius: 20px;
+        padding: 10px 15px;
+        font-weight: bold;
+        transition: all 0.3s;
+    }
+    .icon-button {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        font-size: 1.2rem;
+        cursor: pointer;
+        transition: background-color 0.3s;
+    }
+    .view-button {
+        background-color: #f0f2f6;
+        color: #4f8bf9;
+    }
+    .view-button:hover {
+        background-color: #e0e2e6;
+    }
+    .delete-button {
+        background-color: #ffebee;
+        color: #f44336;
+    }
+    .delete-button:hover {
+        background-color: #ffcdd2;
+    }
+    .filter-badge {
+        display: inline-block;
+        background-color: #e8f0fe;
+        color: #4f8bf9;
+        border-radius: 16px;
+        padding: 5px 10px;
+        margin-right: 5px;
+        margin-bottom: 5px;
+        font-size: 0.85rem;
+    }
+    /* 날짜 선택 입력 필드 스타일 개선 */
+    .stDateInput > div > div > input {
+        border-radius: 8px;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -444,16 +503,30 @@ else:
             if st.session_state.selected_chat_id:
                 # 선택된 채팅 세션 표시
                 selected_chat = None
-                for chat in st.session_state.user_data['chat_sessions']:
+                selected_chat_index = None
+                for i, chat in enumerate(st.session_state.user_data['chat_sessions']):
                     if chat['id'] == st.session_state.selected_chat_id:
                         selected_chat = chat
+                        selected_chat_index = i
                         break
                 
                 if selected_chat:
-                    # 뒤로가기 버튼
-                    if st.button("← 기록 목록으로 돌아가기"):
-                        st.session_state.selected_chat_id = None
-                        st.rerun()
+                    # 뒤로가기 버튼과 삭제 버튼을 나란히 배치
+                    col1, col2 = st.columns([1, 1])
+                    
+                    with col1:
+                        if st.button("← 기록 목록으로 돌아가기"):
+                            st.session_state.selected_chat_id = None
+                            st.rerun()
+                    
+                    with col2:
+                        if st.button("🗑️ 이 대화 삭제하기", type="primary", use_container_width=True):
+                            # 선택된 채팅 삭제
+                            st.session_state.user_data['chat_sessions'].pop(selected_chat_index)
+                            save_user_data(st.session_state.username, st.session_state.user_data)
+                            st.session_state.selected_chat_id = None
+                            st.success("대화가 삭제되었습니다.")
+                            st.rerun()
                     
                     # 채팅 세션 정보 표시
                     chat_date = datetime.datetime.fromisoformat(selected_chat['date']).strftime("%Y년 %m월 %d일 %H:%M")
@@ -503,32 +576,192 @@ else:
                     st.error("선택한 채팅을 찾을 수 없습니다.")
                     st.session_state.selected_chat_id = None
             else:
+                # 필터링 옵션 초기화
+                if 'filter_emotion' not in st.session_state:
+                    st.session_state.filter_emotion = []
+                if 'filter_date_start' not in st.session_state:
+                    st.session_state.filter_date_start = None
+                if 'filter_date_end' not in st.session_state:
+                    st.session_state.filter_date_end = None
+                
+                # 필터링 옵션 UI
+                with st.expander("필터 옵션", expanded=False):
+                    st.markdown("<div class='filter-section'>", unsafe_allow_html=True)
+                    st.markdown("<div class='filter-title'>채팅 기록 필터링</div>", unsafe_allow_html=True)
+                    
+                    # 감정 필터
+                    st.markdown("<div class='filter-item'><strong>감정 선택</strong></div>", unsafe_allow_html=True)
+                    emotions_list = list(EMOTIONS.keys())
+                    
+                    # 감정 필터 UI를 더 효율적으로 표시
+                    cols = st.columns(5)  # 한 행에 5개씩 표시
+                    selected_emotions = []
+                    
+                    for i, emotion in enumerate(emotions_list):
+                        col_idx = i % 5
+                        emotion_icon = EMOTION_ICONS.get(emotion, "")
+                        emotion_selected = cols[col_idx].checkbox(
+                            f"{emotion_icon} {emotion}", 
+                            value=emotion in st.session_state.filter_emotion,
+                            key=f"filter_{emotion}"
+                        )
+                        if emotion_selected:
+                            selected_emotions.append(emotion)
+                    
+                    st.session_state.filter_emotion = selected_emotions
+                    
+                    # 날짜 필터 (시작 및 종료 날짜)
+                    st.markdown("<div class='filter-item'><strong>날짜 범위 선택</strong></div>", unsafe_allow_html=True)
+                    
+                    date_col1, date_col2 = st.columns(2)
+                    
+                    with date_col1:
+                        start_date = st.date_input(
+                            "시작 날짜", 
+                            value=st.session_state.filter_date_start if st.session_state.filter_date_start else None,
+                            format="YYYY-MM-DD"
+                        )
+                        if start_date:
+                            st.session_state.filter_date_start = datetime.datetime.combine(start_date, datetime.time.min)
+                        
+                    with date_col2:
+                        end_date = st.date_input(
+                            "종료 날짜", 
+                            value=st.session_state.filter_date_end if st.session_state.filter_date_end else None,
+                            format="YYYY-MM-DD"
+                        )
+                        if end_date:
+                            st.session_state.filter_date_end = datetime.datetime.combine(end_date, datetime.time.max)
+                    
+                    # 필터 초기화 버튼
+                    if st.button("필터 초기화", type="secondary", use_container_width=True):
+                        st.session_state.filter_emotion = []
+                        st.session_state.filter_date_start = None
+                        st.session_state.filter_date_end = None
+                        st.rerun()
+                    
+                    st.markdown("</div>", unsafe_allow_html=True)
+                
                 # 채팅 기록 목록 표시
                 chat_sessions = st.session_state.user_data['chat_sessions']
                 
-                # 최신 순으로 정렬
-                chat_sessions.sort(key=lambda x: x.get('date', ''), reverse=True)
-                
+                # 필터링 적용
+                filtered_sessions = []
                 for chat in chat_sessions:
-                    # 채팅 카드 생성
-                    col1, col2 = st.columns([5, 1])
+                    # 감정 필터링
+                    emotion_match = True
+                    if st.session_state.filter_emotion:
+                        chat_emotion = chat.get('emotion', '')
+                        if chat_emotion not in st.session_state.filter_emotion:
+                            emotion_match = False
                     
-                    with st.container():
-                        # 카드 스타일 컨테이너
-                        st.markdown(f"""
-                        <div class="chat-card">
-                            <div class="chat-card-header">
-                                <span class="chat-card-emotion">{EMOTION_ICONS.get(chat.get('emotion', ''), '')} {chat.get('emotion', '알 수 없음')}</span>
-                                <span class="chat-card-date">{datetime.datetime.fromisoformat(chat.get('date', '')).strftime("%Y년 %m월 %d일 %H:%M")}</span>
-                            </div>
-                            <div class="chat-card-preview">{chat.get('preview', '대화 내용 없음')[:100]}...</div>
-                        </div>
-                        """, unsafe_allow_html=True)
+                    # 날짜 필터링
+                    date_match = True
+                    if st.session_state.filter_date_start or st.session_state.filter_date_end:
+                        chat_date = datetime.datetime.fromisoformat(chat.get('date', ''))
                         
-                        # 카드 클릭 버튼 (보이지 않게 처리하고 카드 위에 오버레이)
-                        if st.button("보기", key=f"view_{chat['id']}"):
-                            st.session_state.selected_chat_id = chat['id']
-                            st.rerun()
+                        if st.session_state.filter_date_start and chat_date < st.session_state.filter_date_start:
+                            date_match = False
+                        
+                        if st.session_state.filter_date_end and chat_date > st.session_state.filter_date_end:
+                            date_match = False
+                    
+                    # 필터 조건에 맞는 경우만 추가
+                    if emotion_match and date_match:
+                        filtered_sessions.append(chat)
+                
+                # 필터링 결과 안내
+                if st.session_state.filter_emotion or st.session_state.filter_date_start or st.session_state.filter_date_end:
+                    st.markdown("<div style='margin-bottom: 15px;'>", unsafe_allow_html=True)
+                    st.markdown("<strong>적용된 필터:</strong>", unsafe_allow_html=True)
+                    
+                    # 감정 필터 배지
+                    if st.session_state.filter_emotion:
+                        st.markdown("<div>", unsafe_allow_html=True)
+                        for emotion in st.session_state.filter_emotion:
+                            emotion_icon = EMOTION_ICONS.get(emotion, "")
+                            st.markdown(f"<span class='filter-badge'>{emotion_icon} {emotion}</span>", unsafe_allow_html=True)
+                        st.markdown("</div>", unsafe_allow_html=True)
+                    
+                    # 날짜 필터 배지
+                    if st.session_state.filter_date_start or st.session_state.filter_date_end:
+                        st.markdown("<div>", unsafe_allow_html=True)
+                        if st.session_state.filter_date_start:
+                            start_date_str = st.session_state.filter_date_start.strftime("%Y-%m-%d")
+                            st.markdown(f"<span class='filter-badge'>시작일: {start_date_str}</span>", unsafe_allow_html=True)
+                        
+                        if st.session_state.filter_date_end:
+                            end_date_str = st.session_state.filter_date_end.strftime("%Y-%m-%d")
+                            st.markdown(f"<span class='filter-badge'>종료일: {end_date_str}</span>", unsafe_allow_html=True)
+                        st.markdown("</div>", unsafe_allow_html=True)
+                    
+                    st.markdown("</div>", unsafe_allow_html=True)
+                    
+                    if not filtered_sessions:
+                        st.warning("필터 조건에 맞는 채팅 기록이 없습니다.")
+                
+                # 최신 순으로 정렬
+                filtered_sessions.sort(key=lambda x: x.get('date', ''), reverse=True)
+                
+                # 결과 갯수 표시
+                if filtered_sessions:
+                    st.markdown(f"<div style='margin-bottom: 10px;'><strong>{len(filtered_sessions)}개</strong>의 대화 기록이 있습니다.</div>", unsafe_allow_html=True)
+                
+                # 필터링된 채팅 기록 표시
+                for chat in filtered_sessions:
+                    with st.container():
+                        col1, col2 = st.columns([5, 1])
+                        
+                        with col1:
+                            # 카드 스타일 컨테이너
+                            st.markdown(f"""
+                            <div class="chat-card">
+                                <div class="chat-card-header">
+                                    <span class="chat-card-emotion">{EMOTION_ICONS.get(chat.get('emotion', ''), '')} {chat.get('emotion', '알 수 없음')}</span>
+                                    <span class="chat-card-date">{datetime.datetime.fromisoformat(chat.get('date', '')).strftime("%Y년 %m월 %d일 %H:%M")}</span>
+                                </div>
+                                <div class="chat-card-preview">{chat.get('preview', '대화 내용 없음')[:100]}...</div>
+                            </div>
+                            """, unsafe_allow_html=True)
+                        
+                        with col2:
+                            view_col, delete_col = st.columns(2)
+                            
+                            # 보기 버튼
+                            if view_col.button("👁️", key=f"view_{chat['id']}", help="대화 내용 보기"):
+                                st.session_state.selected_chat_id = chat['id']
+                                st.rerun()
+                            
+                            # 삭제 버튼
+                            if delete_col.button("🗑️", key=f"delete_{chat['id']}", help="이 대화 삭제하기"):
+                                # 해당 채팅 찾기
+                                chat_index = None
+                                for i, c in enumerate(st.session_state.user_data['chat_sessions']):
+                                    if c['id'] == chat['id']:
+                                        chat_index = i
+                                        break
+                                
+                                if chat_index is not None:
+                                    # 삭제 전 확인 대화상자 표시
+                                    if 'confirm_delete' not in st.session_state:
+                                        st.session_state.confirm_delete = chat['id']
+                                        st.warning("정말 이 대화를 삭제하시겠습니까?")
+                                        col_yes, col_no = st.columns(2)
+                                        if col_yes.button("예", key=f"confirm_yes_{chat['id']}"):
+                                            st.session_state.user_data['chat_sessions'].pop(chat_index)
+                                            save_user_data(st.session_state.username, st.session_state.user_data)
+                                            st.success("대화가 삭제되었습니다.")
+                                            del st.session_state.confirm_delete
+                                            st.rerun()
+                                        if col_no.button("아니오", key=f"confirm_no_{chat['id']}"):
+                                            del st.session_state.confirm_delete
+                                            st.rerun()
+                                    elif st.session_state.confirm_delete != chat['id']:
+                                        # 다른 채팅 삭제 확인 중이면 현재 요청 무시
+                                        pass
+                                    else:
+                                        # 이미 확인 중인 경우 (UI는 위에서 표시됨)
+                                        pass
 
 # 주기적 자동 저장
 if (st.session_state.logged_in and 

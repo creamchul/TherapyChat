@@ -3,8 +3,10 @@ import os
 import datetime
 import time
 from dotenv import load_dotenv
-from auth import setup_auth, register_user, save_user_data, load_user_data, login, logout
+from auth import setup_auth, register_user, save_user_data, load_user_data, login, logout, hash_password, CONFIG_PATH
 from chatbot import EMOTIONS, initialize_chat_history, display_chat_history, add_message, get_ai_response, start_new_chat, analyze_emotion, get_system_prompt
+from pathlib import Path
+import yaml
 
 # 환경 변수 로드
 load_dotenv()
@@ -388,57 +390,104 @@ with st.sidebar:
         if selected_tab == "로그인":
             st.subheader("로그인")
             try:
-                login_form = st.empty()
-                with login_form.container():
-                    username = st.text_input("사용자 이름", key="login_username")
-                    password = st.text_input("비밀번호", type="password", key="login_password")
-                    
-                    # 로그인 버튼 (일반적인 방식)
-                    col1, col2, col3 = st.columns([1, 2, 1])
-                    with col2:
-                        login_button = st.button("로그인", type="primary", use_container_width=True)
-                    
-                    if login_button:
-                        success, name = login(credentials, username, password)
-                        if success:
-                            st.session_state.logged_in = True
-                            st.session_state.username = username
-                            st.success(f"환영합니다, {name}님!")
-                            
-                            # 사용자 데이터 로드
-                            st.session_state.user_data = load_user_data(username)
-                            
-                            # 현재 채팅 ID 초기화
-                            if 'current_chat_id' in st.session_state:
-                                del st.session_state.current_chat_id
-                            
-                            # 채팅 초기화
-                            initialize_chat_history()
-                            login_form.empty()
-                            st.rerun()
-                        else:
-                            st.error("사용자 이름 또는 비밀번호가 잘못되었습니다.")
+                # 로그인 폼
+                username = st.text_input("사용자 이름", key="login_username")
+                password = st.text_input("비밀번호", type="password", key="login_password")
+                
+                # 로그인 버튼
+                login_button = st.button("로그인", type="primary", key="login_btn", use_container_width=True)
+                
+                if login_button:
+                    success, name = login(credentials, username, password)
+                    if success:
+                        st.session_state.logged_in = True
+                        st.session_state.username = username
+                        st.success(f"환영합니다, {name}님!")
+                        
+                        # 사용자 데이터 로드
+                        st.session_state.user_data = load_user_data(username)
+                        
+                        # 현재 채팅 ID 초기화
+                        if 'current_chat_id' in st.session_state:
+                            del st.session_state.current_chat_id
+                        
+                        # 채팅 초기화
+                        initialize_chat_history()
+                        st.rerun()
+                    else:
+                        st.error("사용자 이름 또는 비밀번호가 잘못되었습니다.")
             except Exception as e:
                 st.error(f"로그인 중 오류가 발생했습니다: {e}")
 
             # 회원가입으로 이동 버튼
             st.markdown("---")
-            col1, col2, col3 = st.columns([1, 2, 1])
-            with col2:
-                if st.button("계정이 없으신가요? 회원가입", type="primary", use_container_width=True):
-                    st.session_state.active_tab = "회원가입"
-                    st.rerun()
-        
+            if st.button("계정이 없으신가요? 회원가입", type="secondary", key="goto_signup", use_container_width=True):
+                st.session_state.active_tab = "회원가입"
+                st.rerun()
         elif selected_tab == "회원가입":
-            register_user(credentials)
+            st.subheader("회원가입")
+            try:
+                # 회원가입 폼
+                username = st.text_input("사용자 이름", key="signup_username")
+                name = st.text_input("이름", key="signup_name")
+                email = st.text_input("이메일", key="signup_email")
+                password = st.text_input("비밀번호", type="password", key="signup_password")
+                password_confirm = st.text_input("비밀번호 확인", type="password", key="signup_password_confirm")
+                
+                # 회원가입 버튼
+                signup_button = st.button("회원가입", type="primary", key="signup_btn", use_container_width=True)
+                
+                if signup_button:
+                    # 입력 검증
+                    if not username or not name or not password:
+                        st.error("필수 항목을 모두 입력해주세요.")
+                    elif password != password_confirm:
+                        st.error("비밀번호가 일치하지 않습니다.")
+                    elif username in credentials['usernames']:
+                        st.error("이미 존재하는 사용자 이름입니다.")
+                    else:
+                        # 새 사용자 추가
+                        try:
+                            # 설정 파일 로드
+                            config_file = Path(CONFIG_PATH)
+                            
+                            # 새 사용자 추가
+                            hashed_password = hash_password(password)
+                            credentials['usernames'][username] = {
+                                'name': name,
+                                'password': hashed_password,
+                                'email': email
+                            }
+                            
+                            # 설정 파일 저장
+                            with open(config_file, 'w') as file:
+                                config = {
+                                    'credentials': credentials,
+                                    'cookie': {
+                                        'expiry_days': 30
+                                    }
+                                }
+                                yaml.dump(config, file, default_flow_style=False)
+                                
+                            # 사용자 데이터 파일 초기화
+                            initial_data = {"chat_history": [], "emotions": [], "chat_sessions": []}
+                            save_user_data(username, initial_data)
+                            
+                            st.success("계정이 생성되었습니다. 로그인해 주세요.")
+                            
+                            # 세션 상태 업데이트
+                            st.session_state.active_tab = "로그인"
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"회원가입 중 오류가 발생했습니다: {e}")
+            except Exception as e:
+                st.error(f"회원가입 중 오류가 발생했습니다: {e}")
             
             # 로그인으로 이동 버튼
             st.markdown("---")
-            col1, col2, col3 = st.columns([1, 2, 1])
-            with col2:
-                if st.button("이미 계정이 있으신가요? 로그인", type="primary", use_container_width=True):
-                    st.session_state.active_tab = "로그인"
-                    st.rerun()
+            if st.button("이미 계정이 있으신가요? 로그인", type="secondary", key="goto_login", use_container_width=True):
+                st.session_state.active_tab = "로그인"
+                st.rerun()
     else:
         st.subheader(f"사용자: {st.session_state.username}")
         
